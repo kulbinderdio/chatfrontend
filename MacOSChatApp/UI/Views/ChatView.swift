@@ -80,6 +80,25 @@ struct ChatView: View {
 // Preview provider for SwiftUI Canvas
 struct ChatView_Previews: PreviewProvider {
     static var previews: some View {
-        ChatView(viewModel: ChatViewModel())
+        let keychainManager = KeychainManager()
+        let userDefaultsManager = UserDefaultsManager()
+        let documentHandler = DocumentHandler()
+        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+        
+        // Create a mock database manager that doesn't throw
+        let databaseManager: DatabaseManager
+        do {
+            databaseManager = try DatabaseManager()
+        } catch {
+            fatalError("Failed to initialize DatabaseManager for preview: \(error.localizedDescription)")
+        }
+        
+        let viewModel = ChatViewModel(
+            modelConfigManager: modelConfigManager,
+            databaseManager: databaseManager,
+            documentHandler: documentHandler
+        )
+        
+        return ChatView(viewModel: viewModel)
     }
 }

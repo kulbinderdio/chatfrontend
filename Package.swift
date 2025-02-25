@@ -48,7 +48,12 @@ let package = Package(
                 "MacOSChatApp",
                 .product(name: "Quick", package: "Quick"),
                 .product(name: "Nimble", package: "Nimble"),
-                .product(name: "OHHTTPStubs", package: "OHHTTPStubs")
+                .product(name: "OHHTTPStubs", package: "OHHTTPStubs"),
+                .product(name: "SQLite", package: "SQLite.swift"),
+                .product(name: "KeychainAccess", package: "KeychainAccess"),
+                .product(name: "Alamofire", package: "Alamofire"),
+                .product(name: "SwiftyJSON", package: "SwiftyJSON"),
+                .product(name: "Down", package: "Down")
             ],
             path: "MacOSChatAppTests"
         )

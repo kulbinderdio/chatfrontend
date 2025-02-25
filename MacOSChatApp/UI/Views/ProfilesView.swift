@@ -224,6 +224,25 @@ struct ProfileEditorView: View {
 // Preview provider for SwiftUI Canvas
 struct ProfilesView_Previews: PreviewProvider {
     static var previews: some View {
-        ProfilesView(viewModel: SettingsViewModel())
+        let keychainManager = KeychainManager()
+        let userDefaultsManager = UserDefaultsManager()
+        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+        
+        // Create a mock database manager that doesn't throw
+        let databaseManager: DatabaseManager
+        do {
+            databaseManager = try DatabaseManager()
+        } catch {
+            fatalError("Failed to initialize DatabaseManager for preview: \(error.localizedDescription)")
+        }
+        
+        let viewModel = SettingsViewModel(
+            modelConfigManager: modelConfigManager,
+            keychainManager: keychainManager,
+            userDefaultsManager: userDefaultsManager,
+            databaseManager: databaseManager
+        )
+        
+        return ProfilesView(viewModel: viewModel)
     }
 }

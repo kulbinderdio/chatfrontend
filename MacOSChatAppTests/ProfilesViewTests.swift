@@ -5,7 +5,24 @@ class ProfilesViewTests: XCTestCase {
     
     func testProfilesViewDisplaysProfiles() throws {
         // Given
-        let viewModel = SettingsViewModel()
+        let keychainManager = KeychainManager()
+        let userDefaultsManager = UserDefaultsManager()
+        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+        
+        // Create a mock database manager that doesn't throw
+        let databaseManager: DatabaseManager
+        do {
+            databaseManager = try DatabaseManager()
+        } catch {
+            fatalError("Failed to initialize DatabaseManager for test: \(error.localizedDescription)")
+        }
+        
+        let viewModel = SettingsViewModel(
+            modelConfigManager: modelConfigManager,
+            keychainManager: keychainManager,
+            userDefaultsManager: userDefaultsManager,
+            databaseManager: databaseManager
+        )
         viewModel.profiles = [
             ModelProfile(
                 id: "1",
@@ -34,7 +51,24 @@ class ProfilesViewTests: XCTestCase {
     
     func testProfileEditorView() throws {
         // Given
-        let viewModel = SettingsViewModel()
+        let keychainManager = KeychainManager()
+        let userDefaultsManager = UserDefaultsManager()
+        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+        
+        // Create a mock database manager that doesn't throw
+        let databaseManager: DatabaseManager
+        do {
+            databaseManager = try DatabaseManager()
+        } catch {
+            fatalError("Failed to initialize DatabaseManager for test: \(error.localizedDescription)")
+        }
+        
+        let viewModel = SettingsViewModel(
+            modelConfigManager: modelConfigManager,
+            keychainManager: keychainManager,
+            userDefaultsManager: userDefaultsManager,
+            databaseManager: databaseManager
+        )
         let profile = ModelProfile(
             id: "1",
             name: "Test Profile",

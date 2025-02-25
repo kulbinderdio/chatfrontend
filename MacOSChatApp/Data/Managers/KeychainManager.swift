@@ -25,6 +25,16 @@ class KeychainManager {
         }
     }
     
+    func saveAPIKey(_ apiKey: String, forProfileId profileId: String? = nil) {
+        do {
+            let key = profileId != nil ? "\(KeychainKey.apiKey)_\(profileId!)" : KeychainKey.apiKey
+            try keychain.set(apiKey, key: key)
+            print("API key saved to keychain for profile: \(String(describing: profileId))")
+        } catch {
+            print("Failed to save API key for profile: \(error.localizedDescription)")
+        }
+    }
+    
     func getAPIKey() -> String? {
         do {
             let apiKey = try keychain.get(KeychainKey.apiKey)
@@ -35,12 +45,33 @@ class KeychainManager {
         }
     }
     
+    func getAPIKey(for profileId: String? = nil) -> String? {
+        do {
+            let key = profileId != nil ? "\(KeychainKey.apiKey)_\(profileId!)" : KeychainKey.apiKey
+            let apiKey = try keychain.get(key)
+            return apiKey
+        } catch {
+            print("Failed to retrieve API key for profile: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
     func deleteAPIKey() {
         do {
             try keychain.remove(KeychainKey.apiKey)
             print("API key deleted from keychain")
         } catch {
             print("Failed to delete API key: \(error.localizedDescription)")
+        }
+    }
+    
+    func deleteAPIKey(forProfileId profileId: String? = nil) {
+        do {
+            let key = profileId != nil ? "\(KeychainKey.apiKey)_\(profileId!)" : KeychainKey.apiKey
+            try keychain.remove(key)
+            print("API key deleted from keychain for profile: \(String(describing: profileId))")
+        } catch {
+            print("Failed to delete API key for profile: \(error.localizedDescription)")
         }
     }
     

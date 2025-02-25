@@ -21,9 +21,32 @@ class ProjectStructureTests: XCTestCase {
     
     func testViewsExist() {
         // Verify core views can be instantiated
-        let chatViewModel = ChatViewModel()
+        let keychainManager = KeychainManager()
+        let userDefaultsManager = UserDefaultsManager()
+        let documentHandler = DocumentHandler()
+        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+        
+        // Create a mock database manager that doesn't throw
+        let databaseManager: DatabaseManager
+        do {
+            databaseManager = try DatabaseManager()
+        } catch {
+            fatalError("Failed to initialize DatabaseManager for test: \(error.localizedDescription)")
+        }
+        
+        let chatViewModel = ChatViewModel(
+            modelConfigManager: modelConfigManager,
+            databaseManager: databaseManager,
+            documentHandler: documentHandler
+        )
         let chatView = ChatView(viewModel: chatViewModel)
-        let settingsViewModel = SettingsViewModel()
+        
+        let settingsViewModel = SettingsViewModel(
+            modelConfigManager: modelConfigManager,
+            keychainManager: keychainManager,
+            userDefaultsManager: userDefaultsManager,
+            databaseManager: databaseManager
+        )
         let settingsView = SettingsView(viewModel: settingsViewModel)
         
         XCTAssertNotNil(chatView, "ChatView should be instantiable")
@@ -32,8 +55,31 @@ class ProjectStructureTests: XCTestCase {
     
     func testViewModelsExist() {
         // Verify core view models can be instantiated
-        let chatViewModel = ChatViewModel()
-        let settingsViewModel = SettingsViewModel()
+        let keychainManager = KeychainManager()
+        let userDefaultsManager = UserDefaultsManager()
+        let documentHandler = DocumentHandler()
+        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+        
+        // Create a mock database manager that doesn't throw
+        let databaseManager: DatabaseManager
+        do {
+            databaseManager = try DatabaseManager()
+        } catch {
+            fatalError("Failed to initialize DatabaseManager for test: \(error.localizedDescription)")
+        }
+        
+        let chatViewModel = ChatViewModel(
+            modelConfigManager: modelConfigManager,
+            databaseManager: databaseManager,
+            documentHandler: documentHandler
+        )
+        
+        let settingsViewModel = SettingsViewModel(
+            modelConfigManager: modelConfigManager,
+            keychainManager: keychainManager,
+            userDefaultsManager: userDefaultsManager,
+            databaseManager: databaseManager
+        )
         
         XCTAssertNotNil(chatViewModel, "ChatViewModel should be instantiable")
         XCTAssertNotNil(settingsViewModel, "SettingsViewModel should be instantiable")

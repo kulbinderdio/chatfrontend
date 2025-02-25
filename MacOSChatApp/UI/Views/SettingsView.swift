@@ -48,8 +48,10 @@ struct APIConfigView: View {
     @State private var apiEndpoint: String = ""
     
     var body: some View {
-        Form {
-            Section(header: Text("API Configuration")) {
+        VStack {
+            VStack(alignment: .leading) {
+                Text("API Configuration")
+                    .font(.headline)
                 TextField("API Endpoint", text: $apiEndpoint)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .onAppear {
@@ -68,7 +70,9 @@ struct APIConfigView: View {
                 .disabled(apiEndpoint.isEmpty || apiKey.isEmpty)
             }
             
-            Section(header: Text("Ollama Integration")) {
+            VStack(alignment: .leading) {
+                Text("Ollama Integration")
+                    .font(.headline)
                 Toggle("Enable Ollama", isOn: $viewModel.ollamaEnabled)
                 
                 if viewModel.ollamaEnabled {
@@ -85,8 +89,10 @@ struct ModelSettingsView: View {
     @ObservedObject var viewModel: SettingsViewModel
     
     var body: some View {
-        Form {
-            Section(header: Text("Model Selection")) {
+        VStack {
+            VStack(alignment: .leading) {
+                Text("Model Selection")
+                    .font(.headline)
                 Picker("Model", selection: $viewModel.selectedModel) {
                     ForEach(viewModel.availableModels, id: \.self) { model in
                         Text(model).tag(model)
@@ -95,7 +101,9 @@ struct ModelSettingsView: View {
                 .pickerStyle(DefaultPickerStyle())
             }
             
-            Section(header: Text("Parameters")) {
+            VStack(alignment: .leading) {
+                Text("Parameters")
+                    .font(.headline)
                 VStack(alignment: .leading) {
                     Text("Temperature: \(viewModel.temperature, specifier: "%.1f")")
                     Slider(value: $viewModel.temperature, in: 0...2, step: 0.1)
@@ -134,8 +142,10 @@ struct AppearanceView: View {
     @ObservedObject var viewModel: SettingsViewModel
     
     var body: some View {
-        Form {
-            Section(header: Text("Theme")) {
+        VStack {
+            VStack(alignment: .leading) {
+                Text("Theme")
+                    .font(.headline)
                 Toggle("Use System Appearance", isOn: $viewModel.useSystemAppearance)
                 
                 if !viewModel.useSystemAppearance {
@@ -147,7 +157,9 @@ struct AppearanceView: View {
                 }
             }
             
-            Section(header: Text("Font Size")) {
+            VStack(alignment: .leading) {
+                Text("Font Size")
+                    .font(.headline)
                 Picker("Font Size", selection: $viewModel.fontSize) {
                     Text("Small").tag("small")
                     Text("Medium").tag("medium")
@@ -164,13 +176,17 @@ struct AdvancedView: View {
     @ObservedObject var viewModel: SettingsViewModel
     
     var body: some View {
-        Form {
-            Section(header: Text("Application")) {
+        VStack {
+            VStack(alignment: .leading) {
+                Text("Application")
+                    .font(.headline)
                 Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
                 Toggle("Show in Dock", isOn: $viewModel.showInDock)
             }
             
-            Section(header: Text("Data")) {
+            VStack(alignment: .leading) {
+                Text("Data")
+                    .font(.headline)
                 Button("Clear Conversation History") {
                     viewModel.clearConversationHistory()
                 }
@@ -188,6 +204,25 @@ struct AdvancedView: View {
 // Preview provider for SwiftUI Canvas
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
-        SettingsView(viewModel: SettingsViewModel())
+        let keychainManager = KeychainManager()
+        let userDefaultsManager = UserDefaultsManager()
+        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+        
+        // Create a mock database manager that doesn't throw
+        let databaseManager: DatabaseManager
+        do {
+            databaseManager = try DatabaseManager()
+        } catch {
+            fatalError("Failed to initialize DatabaseManager for preview: \(error.localizedDescription)")
+        }
+        
+        let viewModel = SettingsViewModel(
+            modelConfigManager: modelConfigManager,
+            keychainManager: keychainManager,
+            userDefaultsManager: userDefaultsManager,
+            databaseManager: databaseManager
+        )
+        
+        return SettingsView(viewModel: viewModel)
     }
 }

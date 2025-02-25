@@ -5,7 +5,24 @@ class SettingsViewTests: XCTestCase {
     
     func testSettingsViewHasFiveTabs() throws {
         // Given
-        let viewModel = SettingsViewModel()
+        let keychainManager = KeychainManager()
+        let userDefaultsManager = UserDefaultsManager()
+        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+        
+        // Create a mock database manager that doesn't throw
+        let databaseManager: DatabaseManager
+        do {
+            databaseManager = try DatabaseManager()
+        } catch {
+            fatalError("Failed to initialize DatabaseManager for test: \(error.localizedDescription)")
+        }
+        
+        let viewModel = SettingsViewModel(
+            modelConfigManager: modelConfigManager,
+            keychainManager: keychainManager,
+            userDefaultsManager: userDefaultsManager,
+            databaseManager: databaseManager
+        )
         
         // When
         let view = SettingsView(viewModel: viewModel)
@@ -18,7 +35,24 @@ class SettingsViewTests: XCTestCase {
     
     func testAPIConfigViewSavesSettings() throws {
         // Given
-        let viewModel = SettingsViewModel()
+        let keychainManager = KeychainManager()
+        let userDefaultsManager = UserDefaultsManager()
+        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+        
+        // Create a mock database manager that doesn't throw
+        let databaseManager: DatabaseManager
+        do {
+            databaseManager = try DatabaseManager()
+        } catch {
+            fatalError("Failed to initialize DatabaseManager for test: \(error.localizedDescription)")
+        }
+        
+        let viewModel = SettingsViewModel(
+            modelConfigManager: modelConfigManager,
+            keychainManager: keychainManager,
+            userDefaultsManager: userDefaultsManager,
+            databaseManager: databaseManager
+        )
         let view = APIConfigView(viewModel: viewModel)
         
         // Then
@@ -29,7 +63,24 @@ class SettingsViewTests: XCTestCase {
     
     func testModelSettingsViewUpdatesParameters() throws {
         // Given
-        let viewModel = SettingsViewModel()
+        let keychainManager = KeychainManager()
+        let userDefaultsManager = UserDefaultsManager()
+        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+        
+        // Create a mock database manager that doesn't throw
+        let databaseManager: DatabaseManager
+        do {
+            databaseManager = try DatabaseManager()
+        } catch {
+            fatalError("Failed to initialize DatabaseManager for test: \(error.localizedDescription)")
+        }
+        
+        let viewModel = SettingsViewModel(
+            modelConfigManager: modelConfigManager,
+            keychainManager: keychainManager,
+            userDefaultsManager: userDefaultsManager,
+            databaseManager: databaseManager
+        )
         let view = ModelSettingsView(viewModel: viewModel)
         
         // Then

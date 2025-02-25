@@ -66,7 +66,7 @@ check_status "Dependency resolution"
 # Run tests if requested
 if [ "$RUN_TESTS" = true ]; then
     print_section "Running tests"
-    swift test
+    swift test -Xlinker -L$(xcrun --show-sdk-path)/usr/lib
     check_status "Tests"
     exit 0
 fi
