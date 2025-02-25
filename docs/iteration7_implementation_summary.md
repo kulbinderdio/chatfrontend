@@ -468,4 +468,10 @@ During the final integration and testing phase, several issues were identified a
 
 4. **Dependency Integration**: Enhanced the dependency integration tests to better handle private properties and methods. This improves the robustness of the tests and ensures that they accurately reflect the behavior of the application.
 
+5. **Thread Safety**: Fixed thread safety issues in the ConversationListViewModel's exportConversation method. The NSSavePanel was being created on a background thread, which is not allowed. The fix ensures that UI operations happen on the main thread.
+
+6. **Document Handling Tests**: Fixed the ChatViewModelDocumentTests to properly handle asynchronous operations. The tests now wait for the async updates to complete before checking the results.
+
+7. **Message Initialization**: Updated the Message initialization in the tests to use the correct initializer with the required id parameter. This ensures that the tests are using the correct Message model.
+
 These improvements have significantly enhanced the stability and reliability of the application, making it ready for deployment.
