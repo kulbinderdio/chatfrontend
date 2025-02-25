@@ -69,13 +69,22 @@ class ChatViewModelDocumentTests: XCTestCase {
         let url = URL(fileURLWithPath: "/path/to/test.pdf")
         documentHandler.mockExtractedText = "Test document content"
         
+        // Create an expectation
+        let expectation = XCTestExpectation(description: "Document text extracted")
+        
         // When
         viewModel.handleDocumentDropped(url: url)
         
-        // Then
-        XCTAssertEqual(viewModel.extractedDocumentText, "Test document content")
-        XCTAssertEqual(viewModel.extractedDocumentName, "test.pdf")
-        XCTAssertTrue(viewModel.showExtractedTextEditor)
+        // Wait for async updates
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // Then
+            XCTAssertEqual(self.viewModel.extractedDocumentText, "Test document content")
+            XCTAssertEqual(self.viewModel.extractedDocumentName, "test.pdf")
+            XCTAssertTrue(self.viewModel.showExtractedTextEditor)
+            expectation.fulfill()
+        }
+        
+        wait(for: [expectation], timeout: 1.0)
     }
     
     func testHandleDocumentError() {
@@ -83,15 +92,24 @@ class ChatViewModelDocumentTests: XCTestCase {
         let url = URL(fileURLWithPath: "/path/to/test.pdf")
         documentHandler.mockError = DocumentHandlerError.pdfProcessingError
         
+        // Create an expectation
+        let expectation = XCTestExpectation(description: "Document error handled")
+        
         // When
         viewModel.handleDocumentDropped(url: url)
         
-        // Then
-        XCTAssertNil(viewModel.extractedDocumentText)
-        XCTAssertNil(viewModel.extractedDocumentName)
-        XCTAssertFalse(viewModel.showExtractedTextEditor)
-        XCTAssertNotNil(viewModel.errorMessage)
-        XCTAssertTrue(viewModel.errorMessage?.contains("Could not process the PDF file") ?? false)
+        // Wait for async updates
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // Then
+            XCTAssertNil(self.viewModel.extractedDocumentText)
+            XCTAssertNil(self.viewModel.extractedDocumentName)
+            XCTAssertFalse(self.viewModel.showExtractedTextEditor)
+            XCTAssertNotNil(self.viewModel.errorMessage)
+            XCTAssertTrue(self.viewModel.errorMessage?.contains("Could not process the PDF file") ?? false)
+            expectation.fulfill()
+        }
+        
+        wait(for: [expectation], timeout: 1.0)
     }
     
     func testUseExtractedText() {

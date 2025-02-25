@@ -139,8 +139,8 @@ class DatabaseManagerTests: XCTestCase {
         let conversation = databaseManager.createConversation(title: "Conversation with Messages")
         
         // Add messages
-        let message1 = Message(role: "user", content: "Hello")
-        let message2 = Message(role: "assistant", content: "Hi there! How can I help you?")
+        let message1 = Message(id: UUID().uuidString, role: "user", content: "Hello", timestamp: Date())
+        let message2 = Message(id: UUID().uuidString, role: "assistant", content: "Hi there! How can I help you?", timestamp: Date())
         
         databaseManager.addMessage(message1, toConversation: conversation.id)
         databaseManager.addMessage(message2, toConversation: conversation.id)
@@ -163,9 +163,9 @@ class DatabaseManagerTests: XCTestCase {
         let conversation3 = databaseManager.createConversation(title: "Cherry Picking")
         
         // Add messages to the conversations
-        databaseManager.addMessage(Message(role: "user", content: "I love apples"), toConversation: conversation1.id)
-        databaseManager.addMessage(Message(role: "user", content: "Bananas are great"), toConversation: conversation2.id)
-        databaseManager.addMessage(Message(role: "user", content: "Cherries are my favorite"), toConversation: conversation3.id)
+        databaseManager.addMessage(Message(id: UUID().uuidString, role: "user", content: "I love apples", timestamp: Date()), toConversation: conversation1.id)
+        databaseManager.addMessage(Message(id: UUID().uuidString, role: "user", content: "Bananas are great", timestamp: Date()), toConversation: conversation2.id)
+        databaseManager.addMessage(Message(id: UUID().uuidString, role: "user", content: "Cherries are my favorite", timestamp: Date()), toConversation: conversation3.id)
         
         // Search for "apple"
         let appleResults = databaseManager.searchConversations(query: "apple")

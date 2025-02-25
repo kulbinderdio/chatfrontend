@@ -185,46 +185,54 @@ class ConversationListViewModel: ObservableObject {
     func exportConversation(conversation: Conversation, format: ExportFormat) {
         isLoading = true
         
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // Ensure UI operations happen on the main thread
+        DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
-            do {
-                // Create a save panel
-                let savePanel = NSSavePanel()
-                savePanel.canCreateDirectories = true
+            // Create a save panel
+            let savePanel = NSSavePanel()
+            savePanel.canCreateDirectories = true
+            
+            // Set file name and extension based on format
+            switch format {
+            case .plainText:
+                savePanel.allowedFileTypes = ["txt"]
+                savePanel.nameFieldStringValue = "\(conversation.title).txt"
+            case .markdown:
+                savePanel.allowedFileTypes = ["md"]
+                savePanel.nameFieldStringValue = "\(conversation.title).md"
+            case .pdf:
+                savePanel.allowedFileTypes = ["pdf"]
+                savePanel.nameFieldStringValue = "\(conversation.title).pdf"
+            case .json:
+                savePanel.allowedFileTypes = ["json"]
+                savePanel.nameFieldStringValue = "\(conversation.title).json"
+            }
+            
+            // Show save panel
+            savePanel.begin { [weak self] result in
+                guard let self = self else { return }
                 
-                // Set file name and extension based on format
-                switch format {
-                case .plainText:
-                    savePanel.allowedFileTypes = ["txt"]
-                    savePanel.nameFieldStringValue = "\(conversation.title).txt"
-                case .markdown:
-                    savePanel.allowedFileTypes = ["md"]
-                    savePanel.nameFieldStringValue = "\(conversation.title).md"
-                case .pdf:
-                    savePanel.allowedFileTypes = ["pdf"]
-                    savePanel.nameFieldStringValue = "\(conversation.title).pdf"
-                case .json:
-                    savePanel.allowedFileTypes = ["json"]
-                    savePanel.nameFieldStringValue = "\(conversation.title).json"
-                }
-                
-                // Show save panel
-                DispatchQueue.main.async {
-                    savePanel.begin { result in
-                        if result == .OK, let url = savePanel.url {
-                            do {
-                                try self.exporter.exportConversation(conversation, to: url, format: format)
-                                
-                                // Open the file
+                if result == .OK, let url = savePanel.url {
+                    // Export on a background thread
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        do {
+                            try self.exporter.exportConversation(conversation, to: url, format: format)
+                            
+                            // Open the file on the main thread
+                            DispatchQueue.main.async {
                                 NSWorkspace.shared.open(url)
-                            } catch {
+                                self.isLoading = false
+                            }
+                        } catch {
+                            DispatchQueue.main.async {
                                 self.errorMessage = "Failed to export conversation: \(error.localizedDescription)"
+                                self.isLoading = false
                             }
                         }
-                        
-                        self.isLoading = false
                     }
+                } else {
+                    self.isLoading = false
                 }
             }
         }
