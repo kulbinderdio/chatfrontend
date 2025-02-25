@@ -6,22 +6,25 @@ struct Conversation: Identifiable, Codable, Equatable {
     var messages: [Message]
     let createdAt: Date
     var updatedAt: Date
+    var profileId: String?
     
-    init(id: String, title: String, messages: [Message], createdAt: Date, updatedAt: Date) {
+    init(id: String, title: String, messages: [Message], createdAt: Date, updatedAt: Date, profileId: String? = nil) {
         self.id = id
         self.title = title
         self.messages = messages
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.profileId = profileId
     }
     
     // Convenience initializer with auto-generated ID
-    init(title: String, messages: [Message] = []) {
+    init(title: String, messages: [Message] = [], profileId: String? = nil) {
         self.id = UUID().uuidString
         self.title = title
         self.messages = messages
         self.createdAt = Date()
         self.updatedAt = Date()
+        self.profileId = profileId
     }
     
     // Codable conformance
@@ -31,6 +34,7 @@ struct Conversation: Identifiable, Codable, Equatable {
         case messages
         case createdAt
         case updatedAt
+        case profileId
     }
     
     // Equatable conformance
@@ -39,7 +43,8 @@ struct Conversation: Identifiable, Codable, Equatable {
                lhs.title == rhs.title &&
                lhs.messages == rhs.messages &&
                lhs.createdAt == rhs.createdAt &&
-               lhs.updatedAt == rhs.updatedAt
+               lhs.updatedAt == rhs.updatedAt &&
+               lhs.profileId == rhs.profileId
     }
     
     // Update the conversation with a new message

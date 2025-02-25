@@ -2,134 +2,316 @@ import Foundation
 import SQLite
 
 class DatabaseManager {
-    // Database connection
-    private var db: Connection?
-    
-    // Tables
-    private let conversationsTable = Table("conversations")
-    private let messagesTable = Table("messages")
-    
-    // Conversation columns
-    private let conversationId = Expression<String>("id")
-    private let conversationTitle = Expression<String>("title")
-    private let conversationCreatedAt = Expression<Date>("created_at")
-    private let conversationUpdatedAt = Expression<Date>("updated_at")
-    
-    // Message columns
-    private let messageId = Expression<String>("id")
-    private let messageConversationId = Expression<String>("conversation_id")
-    private let messageRole = Expression<String>("role")
-    private let messageContent = Expression<String>("content")
-    private let messageTimestamp = Expression<Date>("timestamp")
+    private let db: Connection
     
     init() throws {
-        // This is a placeholder implementation
-        // In a real implementation, we would create a SQLite database
+        // Get the application support directory
+        let fileManager = FileManager.default
+        let appSupportDir = try fileManager.url(for: .applicationSupportDirectory,
+                                               in: .userDomainMask,
+                                               appropriateFor: nil,
+                                               create: true)
         
-        // For now, just print a message to indicate initialization
+        // Create app-specific directory if it doesn't exist
+        let appDir = appSupportDir.appendingPathComponent("MacOSChatApp", isDirectory: true)
+        if !fileManager.fileExists(atPath: appDir.path) {
+            try fileManager.createDirectory(at: appDir, withIntermediateDirectories: true)
+        }
+        
+        // Open or create the database
+        let dbPath = appDir.appendingPathComponent("chat_history.sqlite").path
+        db = try Connection(dbPath)
+        
+        // Create tables if they don't exist
+        try DatabaseSchema.createTables(db: db)
+        
         print("DatabaseManager initialized")
     }
     
     // MARK: - Conversation Methods
     
-    func createConversation(title: String) -> Conversation {
-        // This is a placeholder implementation
-        // In a real implementation, we would insert a new conversation into the database
+    func createConversation(title: String, profileId: String? = nil) -> Conversation {
+        let id = UUID().uuidString
+        let now = Date()
         
-        let conversation = Conversation(title: title)
-        print("Created conversation: \(conversation.id)")
-        return conversation
+        let insert = DatabaseSchema.conversations.insert(
+            DatabaseSchema.conversationId <- id,
+            DatabaseSchema.conversationTitle <- title,
+            DatabaseSchema.conversationCreatedAt <- now,
+            DatabaseSchema.conversationUpdatedAt <- now,
+            DatabaseSchema.conversationProfileId <- profileId
+        )
+        
+        do {
+            try db.run(insert)
+            print("Created conversation: \(id)")
+            
+            return Conversation(
+                id: id,
+                title: title,
+                messages: [],
+                createdAt: now,
+                updatedAt: now,
+                profileId: profileId
+            )
+        } catch {
+            print("Failed to create conversation: \(error.localizedDescription)")
+            // Return a conversation anyway for now, but in a real app we would handle this error
+            return Conversation(
+                id: id,
+                title: title,
+                messages: [],
+                createdAt: now,
+                updatedAt: now,
+                profileId: profileId
+            )
+        }
     }
     
     func getConversation(id: String) -> Conversation? {
-        // This is a placeholder implementation
-        // In a real implementation, we would fetch a conversation from the database
+        let query = DatabaseSchema.conversations.filter(DatabaseSchema.conversationId == id)
         
-        print("Fetching conversation: \(id)")
-        return Conversation(
-            id: id,
-            title: "Sample Conversation",
-            messages: [
-                Message(id: "1", role: "user", content: "Hello", timestamp: Date().addingTimeInterval(-60)),
-                Message(id: "2", role: "assistant", content: "Hi there! How can I help you today?", timestamp: Date())
-            ],
-            createdAt: Date().addingTimeInterval(-3600),
-            updatedAt: Date()
-        )
+        do {
+            if let row = try db.pluck(query) {
+                print("Fetching conversation: \(id)")
+                
+                let conversation = Conversation(
+                    id: row[DatabaseSchema.conversationId],
+                    title: row[DatabaseSchema.conversationTitle],
+                    messages: getMessages(forConversation: id),
+                    createdAt: row[DatabaseSchema.conversationCreatedAt],
+                    updatedAt: row[DatabaseSchema.conversationUpdatedAt],
+                    profileId: row[DatabaseSchema.conversationProfileId]
+                )
+                
+                return conversation
+            }
+        } catch {
+            print("Error getting conversation: \(error.localizedDescription)")
+        }
+        
+        return nil
     }
     
-    func getAllConversations() -> [Conversation] {
-        // This is a placeholder implementation
-        // In a real implementation, we would fetch all conversations from the database
+    func getAllConversations(limit: Int = 50, offset: Int = 0) -> [Conversation] {
+        let query = DatabaseSchema.conversations
+            .order(DatabaseSchema.conversationUpdatedAt.desc)
+            .limit(limit, offset: offset)
         
-        print("Fetching all conversations")
-        return [
-            Conversation(
-                id: UUID().uuidString,
-                title: "Sample Conversation 1",
-                messages: [],
-                createdAt: Date().addingTimeInterval(-7200),
-                updatedAt: Date().addingTimeInterval(-3600)
-            ),
-            Conversation(
-                id: UUID().uuidString,
-                title: "Sample Conversation 2",
-                messages: [],
-                createdAt: Date().addingTimeInterval(-3600),
-                updatedAt: Date()
-            )
-        ]
+        var conversations: [Conversation] = []
+        
+        do {
+            print("Fetching all conversations")
+            
+            for row in try db.prepare(query) {
+                let conversation = Conversation(
+                    id: row[DatabaseSchema.conversationId],
+                    title: row[DatabaseSchema.conversationTitle],
+                    messages: [], // Don't load messages here for performance
+                    createdAt: row[DatabaseSchema.conversationCreatedAt],
+                    updatedAt: row[DatabaseSchema.conversationUpdatedAt],
+                    profileId: row[DatabaseSchema.conversationProfileId]
+                )
+                conversations.append(conversation)
+            }
+        } catch {
+            print("Error getting all conversations: \(error.localizedDescription)")
+        }
+        
+        return conversations
     }
     
     func updateConversation(_ conversation: Conversation) {
-        // This is a placeholder implementation
-        // In a real implementation, we would update a conversation in the database
+        let query = DatabaseSchema.conversations.filter(DatabaseSchema.conversationId == conversation.id)
         
-        print("Updated conversation: \(conversation.id)")
+        let update = query.update(
+            DatabaseSchema.conversationTitle <- conversation.title,
+            DatabaseSchema.conversationUpdatedAt <- conversation.updatedAt,
+            DatabaseSchema.conversationProfileId <- conversation.profileId
+        )
+        
+        do {
+            try db.run(update)
+            print("Updated conversation: \(conversation.id)")
+        } catch {
+            print("Error updating conversation: \(error.localizedDescription)")
+        }
     }
     
-    func deleteConversation(id: String) {
-        // This is a placeholder implementation
-        // In a real implementation, we would delete a conversation from the database
+    func updateConversationTitle(id: String, title: String) throws {
+        let conversation = DatabaseSchema.conversations.filter(DatabaseSchema.conversationId == id)
         
-        print("Deleted conversation: \(id)")
+        let update = conversation.update(
+            DatabaseSchema.conversationTitle <- title,
+            DatabaseSchema.conversationUpdatedAt <- Date()
+        )
+        
+        do {
+            if try db.run(update) > 0 {
+                return
+            } else {
+                throw DatabaseError.notFound
+            }
+        } catch {
+            throw DatabaseError.updateFailed("Failed to update conversation title: \(error.localizedDescription)")
+        }
+    }
+    
+    func updateConversationProfile(id: String, profileId: String?) throws {
+        let conversation = DatabaseSchema.conversations.filter(DatabaseSchema.conversationId == id)
+        
+        let update = conversation.update(
+            DatabaseSchema.conversationProfileId <- profileId,
+            DatabaseSchema.conversationUpdatedAt <- Date()
+        )
+        
+        do {
+            if try db.run(update) > 0 {
+                return
+            } else {
+                throw DatabaseError.notFound
+            }
+        } catch {
+            throw DatabaseError.updateFailed("Failed to update conversation profile: \(error.localizedDescription)")
+        }
+    }
+    
+    func deleteConversation(id: String) throws {
+        let conversation = DatabaseSchema.conversations.filter(DatabaseSchema.conversationId == id)
+        
+        do {
+            if try db.run(conversation.delete()) > 0 {
+                print("Deleted conversation: \(id)")
+                return
+            } else {
+                throw DatabaseError.notFound
+            }
+        } catch {
+            throw DatabaseError.deleteFailed("Failed to delete conversation: \(error.localizedDescription)")
+        }
     }
     
     // MARK: - Message Methods
     
     func addMessage(_ message: Message, toConversation conversationId: String) {
-        // This is a placeholder implementation
-        // In a real implementation, we would add a message to a conversation in the database
+        let insert = DatabaseSchema.messages.insert(
+            DatabaseSchema.messageId <- message.id,
+            DatabaseSchema.messageConversationId <- conversationId,
+            DatabaseSchema.messageRole <- message.role,
+            DatabaseSchema.messageContent <- message.content,
+            DatabaseSchema.messageTimestamp <- message.timestamp
+        )
         
-        print("Added message \(message.id) to conversation \(conversationId)")
+        do {
+            try db.run(insert)
+            
+            // Update conversation's updatedAt timestamp
+            let conversation = DatabaseSchema.conversations.filter(DatabaseSchema.conversationId == conversationId)
+            let update = conversation.update(DatabaseSchema.conversationUpdatedAt <- Date())
+            try db.run(update)
+            
+            print("Added message \(message.id) to conversation \(conversationId)")
+        } catch {
+            print("Error adding message: \(error.localizedDescription)")
+        }
     }
     
     func getMessages(forConversation conversationId: String) -> [Message] {
-        // This is a placeholder implementation
-        // In a real implementation, we would fetch messages for a conversation from the database
+        let query = DatabaseSchema.messages
+            .filter(DatabaseSchema.messageConversationId == conversationId)
+            .order(DatabaseSchema.messageTimestamp.asc)
         
-        print("Fetching messages for conversation: \(conversationId)")
-        return [
-            Message(id: "1", role: "user", content: "Hello", timestamp: Date().addingTimeInterval(-60)),
-            Message(id: "2", role: "assistant", content: "Hi there! How can I help you today?", timestamp: Date())
-        ]
+        var messages: [Message] = []
+        
+        do {
+            print("Fetching messages for conversation: \(conversationId)")
+            
+            for row in try db.prepare(query) {
+                let message = Message(
+                    id: row[DatabaseSchema.messageId],
+                    role: row[DatabaseSchema.messageRole],
+                    content: row[DatabaseSchema.messageContent],
+                    timestamp: row[DatabaseSchema.messageTimestamp]
+                )
+                messages.append(message)
+            }
+        } catch {
+            print("Error getting messages: \(error.localizedDescription)")
+        }
+        
+        return messages
+    }
+    
+    func deleteMessage(id: String) throws {
+        let message = DatabaseSchema.messages.filter(DatabaseSchema.messageId == id)
+        
+        do {
+            if try db.run(message.delete()) > 0 {
+                return
+            } else {
+                throw DatabaseError.notFound
+            }
+        } catch {
+            throw DatabaseError.deleteFailed("Failed to delete message: \(error.localizedDescription)")
+        }
     }
     
     // MARK: - Search Methods
     
     func searchConversations(query: String) -> [Conversation] {
-        // This is a placeholder implementation
-        // In a real implementation, we would search for conversations in the database
+        // Create a pattern for SQLite's LIKE operator
+        let pattern = "%\(query)%"
         
-        print("Searching conversations for: \(query)")
-        return [
-            Conversation(
-                id: UUID().uuidString,
-                title: "Sample Conversation with \(query)",
-                messages: [],
-                createdAt: Date().addingTimeInterval(-3600),
-                updatedAt: Date()
-            )
-        ]
+        // Search in conversation titles and message content
+        let titleMatches = DatabaseSchema.conversations
+            .filter(DatabaseSchema.conversationTitle.like(pattern))
+        
+        let contentMatches = DatabaseSchema.conversations
+            .join(DatabaseSchema.messages, on: DatabaseSchema.conversationId == DatabaseSchema.messageConversationId)
+            .filter(DatabaseSchema.messageContent.like(pattern))
+            .select(distinct: DatabaseSchema.conversationId, DatabaseSchema.conversationTitle, 
+                    DatabaseSchema.conversationCreatedAt, DatabaseSchema.conversationUpdatedAt, 
+                    DatabaseSchema.conversationProfileId)
+        
+        var conversations: [Conversation] = []
+        
+        do {
+            print("Searching conversations for: \(query)")
+            
+            // Get title matches
+            for row in try db.prepare(titleMatches) {
+                let conversation = Conversation(
+                    id: row[DatabaseSchema.conversationId],
+                    title: row[DatabaseSchema.conversationTitle],
+                    messages: [], // Don't load messages here for performance
+                    createdAt: row[DatabaseSchema.conversationCreatedAt],
+                    updatedAt: row[DatabaseSchema.conversationUpdatedAt],
+                    profileId: row[DatabaseSchema.conversationProfileId]
+                )
+                conversations.append(conversation)
+            }
+            
+            // Get content matches
+            for row in try db.prepare(contentMatches) {
+                let conversation = Conversation(
+                    id: row[DatabaseSchema.conversationId],
+                    title: row[DatabaseSchema.conversationTitle],
+                    messages: [], // Don't load messages here for performance
+                    createdAt: row[DatabaseSchema.conversationCreatedAt],
+                    updatedAt: row[DatabaseSchema.conversationUpdatedAt],
+                    profileId: row[DatabaseSchema.conversationProfileId]
+                )
+                
+                // Only add if not already added from title matches
+                if !conversations.contains(where: { $0.id == conversation.id }) {
+                    conversations.append(conversation)
+                }
+            }
+        } catch {
+            print("Error searching conversations: \(error.localizedDescription)")
+        }
+        
+        // Sort by most recently updated
+        return conversations.sorted(by: { $0.updatedAt > $1.updatedAt })
     }
 }

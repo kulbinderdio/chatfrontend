@@ -371,7 +371,12 @@ class SettingsViewModel: ObservableObject {
         
         // Delete each conversation
         for conversation in conversations {
-            databaseManager.deleteConversation(id: conversation.id)
+            do {
+                try databaseManager.deleteConversation(id: conversation.id)
+            } catch {
+                print("Failed to delete conversation \(conversation.id): \(error.localizedDescription)")
+                errorMessage = "Failed to delete some conversations"
+            }
         }
     }
     
