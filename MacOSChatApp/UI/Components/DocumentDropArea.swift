@@ -1,49 +1,37 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct DocumentDropArea<Content: View>: View {
     let onDocumentDropped: (URL) -> Void
-    let content: () -> Content
+    let content: Content
     
-    @State private var isHighlighted = false
+    @State private var isTargeted = false
     
-    init(onDocumentDropped: @escaping (URL) -> Void, @ViewBuilder content: @escaping () -> Content) {
+    init(onDocumentDropped: @escaping (URL) -> Void, @ViewBuilder content: () -> Content) {
         self.onDocumentDropped = onDocumentDropped
-        self.content = content
+        self.content = content()
     }
     
     var body: some View {
-        content()
-            .padding(5)
-            .background(
+        content
+            .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isHighlighted ? Color.blue : Color.gray.opacity(0.5), lineWidth: isHighlighted ? 2 : 1)
-                    .background(isHighlighted ? Color.blue.opacity(0.1) : Color.clear)
+                    .stroke(isTargeted ? Color.blue : Color.clear, lineWidth: 2)
             )
-            .onDrop(of: [.fileURL], isTargeted: $isHighlighted) { providers -> Bool in
-                guard let provider = providers.first else { return false }
-                
-                _ = provider.loadObject(ofClass: URL.self) { url, error in
-                    if let url = url, error == nil {
-                        DispatchQueue.main.async {
-                            onDocumentDropped(url)
+            .onDrop(of: ["public.file-url"], isTargeted: $isTargeted) { providers -> Bool in
+                providers.first?.loadItem(forTypeIdentifier: "public.file-url", options: nil) { urlData, _ in
+                    DispatchQueue.main.async {
+                        if let urlData = urlData as? Data {
+                            let url = NSURL(absoluteURLWithDataRepresentation: urlData, relativeTo: nil) as URL
+                            
+                            // Check if file is PDF or TXT
+                            let fileExtension = url.pathExtension.lowercased()
+                            if fileExtension == "pdf" || fileExtension == "txt" {
+                                onDocumentDropped(url)
+                            }
                         }
                     }
                 }
-                
                 return true
             }
-    }
-}
-
-struct DocumentDropArea_Previews: PreviewProvider {
-    static var previews: some View {
-        DocumentDropArea(onDocumentDropped: { _ in }) {
-            Image(systemName: "doc.on.doc")
-                .font(.title)
-                .foregroundColor(.blue)
-        }
-        .frame(width: 100, height: 100)
-        .previewLayout(.sizeThatFits)
     }
 }

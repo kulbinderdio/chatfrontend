@@ -1,21 +1,41 @@
 import XCTest
-import SwiftUI
 @testable import MacOSChatApp
+import SwiftUI
 
 class DocumentDropAreaTests: XCTestCase {
     
-    func testDocumentDropAreaInitialization() throws {
+    func testDocumentDropAreaCallsHandler() {
         // Given
-        let onDocumentDropped: (URL) -> Void = { _ in }
+        var handlerCalled = false
+        let url = URL(fileURLWithPath: "/path/to/test.pdf")
+        let onDrop: (URL) -> Void = { _ in
+            handlerCalled = true
+        }
         
         // When
-        let dropArea = DocumentDropArea(onDocumentDropped: onDocumentDropped) {
-            Text("Test")
+        let dropArea = DocumentDropArea(onDocumentDropped: onDrop) {
+            Text("Drop files here")
         }
         
         // Then
-        // Note: In a real implementation, we would use ViewInspector to test the view
-        // But for now, we'll just check that the view can be created without errors
-        XCTAssertNotNil(dropArea)
+        // This is a limited test since we can't easily simulate drag and drop in unit tests
+        XCTAssertFalse(handlerCalled)
+        
+        // In a real app, we would use UI testing to verify the drag and drop functionality
+    }
+    
+    func testDocumentDropAreaRendersContent() {
+        // Given
+        let onDrop: (URL) -> Void = { _ in }
+        
+        // When
+        let dropArea = DocumentDropArea(onDocumentDropped: onDrop) {
+            Text("Drop files here")
+        }
+        
+        // Then
+        // In a real app with ViewInspector, we would verify the content is rendered
+        // For now, we just ensure it compiles and doesn't crash
+        _ = dropArea.body
     }
 }

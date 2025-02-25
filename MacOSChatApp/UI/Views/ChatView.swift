@@ -1,4 +1,4 @@
-                import SwiftUI
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct ChatView: View {
@@ -96,6 +96,28 @@ struct ChatView: View {
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding()
+        }
+        .sheet(isPresented: $viewModel.showExtractedTextEditor) {
+            if let text = viewModel.extractedDocumentText, let documentName = viewModel.extractedDocumentName {
+                ExtractedTextEditorView(
+                    viewModel: viewModel,
+                    text: Binding(
+                        get: { text },
+                        set: { viewModel.extractedDocumentText = $0 }
+                    ),
+                    documentName: documentName
+                )
+            }
+        }
+        .alert(isPresented: Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )) {
+            Alert(
+                title: Text("Error"),
+                message: Text(viewModel.errorMessage ?? ""),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 }

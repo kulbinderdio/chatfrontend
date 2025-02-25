@@ -6,9 +6,14 @@ class ChatViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
     
+    // Document handling properties
+    @Published var extractedDocumentText: String? = nil
+    @Published var extractedDocumentName: String? = nil
+    @Published var showExtractedTextEditor: Bool = false
+    
     private let modelConfigManager: ModelConfigurationManager
     private let databaseManager: DatabaseManager
-    private let documentHandler: DocumentHandler
+    let documentHandler: DocumentHandler
     private let profileManager: ProfileManager
     
     private var currentConversationId: String?
@@ -138,24 +143,62 @@ class ChatViewModel: ObservableObject {
         createNewConversation()
     }
     
+    // MARK: - Document Handling
+    
     func handleDocumentDropped(url: URL) {
-        processDocuments([url])
+        do {
+            let text = try documentHandler.extractText(from: url)
+            // Show in UI but don't save to database
+            DispatchQueue.main.async {
+                self.extractedDocumentText = text
+                self.extractedDocumentName = url.lastPathComponent
+                self.showExtractedTextEditor = true
+            }
+        } catch {
+            handleDocumentError(error)
+        }
     }
     
-    func processDocuments(_ urls: [URL]) {
-        isLoading = true
+    private func handleDocumentError(_ error: Error) {
+        let errorMessage: String
         
-        documentHandler.processDocuments(urls) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                
-                switch result {
-                case .success(let content):
-                    self?.sendMessage(content)
-                case .failure(let error):
-                    self?.errorMessage = "Failed to process document: \(error.localizedDescription)"
-                }
+        if let docError = error as? DocumentHandlerError {
+            switch docError {
+            case .unsupportedFileType:
+                errorMessage = "Unsupported file type. Please use PDF or TXT files."
+            case .fileReadError:
+                errorMessage = "Could not read the file. It may be corrupted or inaccessible."
+            case .pdfProcessingError:
+                errorMessage = "Could not process the PDF file. It may be corrupted or password-protected."
+            case .emptyDocument:
+                errorMessage = "The document appears to be empty."
             }
+        } else {
+            errorMessage = "Failed to process document: \(error.localizedDescription)"
         }
+        
+        DispatchQueue.main.async {
+            self.errorMessage = errorMessage
+        }
+    }
+    
+    func useExtractedText() {
+        guard let text = extractedDocumentText, !text.isEmpty else {
+            return
+        }
+        
+        // Create and send a message with the extracted text
+        sendMessage(text)
+        
+        // Reset extracted text
+        extractedDocumentText = nil
+        extractedDocumentName = nil
+        showExtractedTextEditor = false
+    }
+    
+    func cancelExtractedText() {
+        extractedDocumentText = nil
+        extractedDocumentName = nil
+        showExtractedTextEditor = false
     }
 }
