@@ -5,34 +5,55 @@ struct SettingsView: View {
     @ObservedObject var profileManager: ProfileManager
     
     @State private var selectedTab = 0
+    @Environment(\.presentationMode) var presentationMode
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            GeneralSettingsView(viewModel: viewModel)
-                .tabItem {
-                    Label("General", systemImage: "gear")
+        VStack {
+            HStack {
+                Text("Settings")
+                    .font(.title)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                Button(action: {
+                    presentationMode.wrappedValue.dismiss()
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.gray)
                 }
-                .tag(0)
+                .buttonStyle(BorderlessButtonStyle())
+            }
+            .padding()
             
-            ProfilesView(profileManager: profileManager)
-                .tabItem {
-                    Label("Profiles", systemImage: "person.crop.circle")
-                }
-                .tag(1)
-            
-            AdvancedSettingsView(viewModel: viewModel)
-                .tabItem {
-                    Label("Advanced", systemImage: "gearshape.2")
-                }
-                .tag(2)
-            
-            AboutView()
-                .tabItem {
-                    Label("About", systemImage: "info.circle")
-                }
-                .tag(3)
+            TabView(selection: $selectedTab) {
+                GeneralSettingsView(viewModel: viewModel)
+                    .tabItem {
+                        Label("General", systemImage: "gear")
+                    }
+                    .tag(0)
+                
+                ProfilesView(profileManager: profileManager)
+                    .tabItem {
+                        Label("Profiles", systemImage: "person.crop.circle")
+                    }
+                    .tag(1)
+                
+                AdvancedSettingsView(viewModel: viewModel)
+                    .tabItem {
+                        Label("Advanced", systemImage: "gearshape.2")
+                    }
+                    .tag(2)
+                
+                AboutView()
+                    .tabItem {
+                        Label("About", systemImage: "info.circle")
+                    }
+                    .tag(3)
+            }
+            .padding([.horizontal, .bottom])
         }
-        .padding()
     }
 }
 
@@ -61,8 +82,11 @@ struct GeneralSettingsView: View {
                 Toggle("Enable Ollama", isOn: $viewModel.ollamaEnabled)
                 
                 if viewModel.ollamaEnabled {
-                    TextField("Ollama Endpoint", text: $viewModel.ollamaEndpoint)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    NativeTextField(
+                        text: $viewModel.ollamaEndpoint,
+                        placeholder: "Ollama Endpoint"
+                    )
+                    .frame(height: 40)
                 }
             }
             

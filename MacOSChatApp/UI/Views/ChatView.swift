@@ -1,4 +1,4 @@
-import SwiftUI
+                import SwiftUI
 import UniformTypeIdentifiers
 
 struct ChatView: View {
@@ -67,9 +67,19 @@ struct ChatView: View {
                 }
                 
                 // Text input
-                TextField("Type a message...", text: $messageText)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
+                NativeTextField(
+                    text: $messageText,
+                    placeholder: "Type a message...",
+                    onCommit: {
+                        let trimmedText = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmedText.isEmpty {
+                            viewModel.sendMessage(trimmedText)
+                            messageText = ""
+                        }
+                    }
+                )
+                .frame(height: 40)
+                .padding(.horizontal)
                 
                 // Send button
                 Button(action: {

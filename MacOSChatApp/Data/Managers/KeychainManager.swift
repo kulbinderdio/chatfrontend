@@ -3,7 +3,9 @@ import KeychainAccess
 import Combine
 
 class KeychainManager: ObservableObject {
-    private let keychain: Keychain
+    // Single shared keychain instance
+    private static let sharedKeychain = Keychain(service: "com.yourcompany.MacOSChatApp")
+        .accessibility(.afterFirstUnlock)
     
     // Keys
     private enum KeychainKey {
@@ -11,46 +13,52 @@ class KeychainManager: ObservableObject {
         static let profilePrefix = "profile_"
     }
     
-    init() {
-        self.keychain = Keychain(service: "com.yourcompany.MacOSChatApp")
-    }
+    // Comprehensive cache to minimize keychain access
+    private static var cache: [String: Any] = [:]
     
     // MARK: - API Key Methods
     
     func saveAPIKey(_ apiKey: String) {
-        do {
-            try keychain.set(apiKey, key: KeychainKey.apiKey)
-            print("API key saved to keychain")
-        } catch {
-            print("Failed to save API key: \(error.localizedDescription)")
-        }
+        saveAPIKey(apiKey, forProfileId: nil)
     }
     
     func saveAPIKey(_ apiKey: String, forProfileId profileId: String? = nil) {
-        do {
-            let key = profileId != nil ? "\(KeychainKey.apiKey)_\(profileId!)" : KeychainKey.apiKey
-            try keychain.set(apiKey, key: key)
-            print("API key saved to keychain for profile: \(String(describing: profileId))")
-        } catch {
-            print("Failed to save API key for profile: \(error.localizedDescription)")
+        let key = profileId != nil ? "\(KeychainKey.apiKey)_\(profileId!)" : KeychainKey.apiKey
+        
+        // Update cache first
+        KeychainManager.cache[key] = apiKey
+        
+        // Then update keychain in background
+        DispatchQueue.global(qos: .background).async {
+            do {
+                try KeychainManager.sharedKeychain.set(apiKey, key: key)
+                print("API key saved to keychain for profile: \(String(describing: profileId))")
+            } catch {
+                print("Failed to save API key for profile: \(error.localizedDescription)")
+            }
         }
     }
     
     func getAPIKey() -> String? {
-        do {
-            let apiKey = try keychain.get(KeychainKey.apiKey)
-            return apiKey
-        } catch {
-            print("Failed to retrieve API key: \(error.localizedDescription)")
-            return nil
-        }
+        return getAPIKey(for: nil)
     }
     
     func getAPIKey(for profileId: String? = nil) -> String? {
+        let key = profileId != nil ? "\(KeychainKey.apiKey)_\(profileId!)" : KeychainKey.apiKey
+        
+        // Check cache first
+        if let cachedKey = KeychainManager.cache[key] as? String {
+            return cachedKey
+        }
+        
+        // If not in cache, get from keychain
         do {
-            let key = profileId != nil ? "\(KeychainKey.apiKey)_\(profileId!)" : KeychainKey.apiKey
-            let apiKey = try keychain.get(key)
-            return apiKey
+            if let apiKey = try KeychainManager.sharedKeychain.get(key) {
+                // Store in cache for future use
+                KeychainManager.cache[key] = apiKey
+                return apiKey
+            }
+            return nil
         } catch {
             print("Failed to retrieve API key for profile: \(error.localizedDescription)")
             return nil
@@ -58,45 +66,73 @@ class KeychainManager: ObservableObject {
     }
     
     func deleteAPIKey() {
-        do {
-            try keychain.remove(KeychainKey.apiKey)
-            print("API key deleted from keychain")
-        } catch {
-            print("Failed to delete API key: \(error.localizedDescription)")
-        }
+        deleteAPIKey(forProfileId: nil)
     }
     
     func deleteAPIKey(forProfileId profileId: String? = nil) {
-        do {
-            let key = profileId != nil ? "\(KeychainKey.apiKey)_\(profileId!)" : KeychainKey.apiKey
-            try keychain.remove(key)
-            print("API key deleted from keychain for profile: \(String(describing: profileId))")
-        } catch {
-            print("Failed to delete API key for profile: \(error.localizedDescription)")
+        let key = profileId != nil ? "\(KeychainKey.apiKey)_\(profileId!)" : KeychainKey.apiKey
+        
+        // Remove from cache first
+        KeychainManager.cache.removeValue(forKey: key)
+        
+        // Then remove from keychain in background
+        DispatchQueue.global(qos: .background).async {
+            do {
+                try KeychainManager.sharedKeychain.remove(key)
+                print("API key deleted from keychain for profile: \(String(describing: profileId))")
+            } catch {
+                print("Failed to delete API key for profile: \(error.localizedDescription)")
+            }
         }
     }
     
     // MARK: - Profile Methods
     
     func saveProfile(_ profile: ModelProfile) {
+        let key = KeychainKey.profilePrefix + profile.id
+        
         do {
             let encoder = JSONEncoder()
             let data = try encoder.encode(profile)
             
-            let key = KeychainKey.profilePrefix + profile.id
-            try keychain.set(data, key: key)
-            print("Profile saved to keychain: \(profile.name)")
+            // Store in cache
+            KeychainManager.cache[key] = data
+            
+            // Then update keychain in background
+            DispatchQueue.global(qos: .background).async {
+                do {
+                    try KeychainManager.sharedKeychain.set(data, key: key)
+                    print("Profile saved to keychain: \(profile.name)")
+                } catch {
+                    print("Failed to save profile: \(error.localizedDescription)")
+                }
+            }
         } catch {
-            print("Failed to save profile: \(error.localizedDescription)")
+            print("Failed to encode profile: \(error.localizedDescription)")
         }
     }
     
     func getProfile(id: String) -> ModelProfile? {
+        let key = KeychainKey.profilePrefix + id
+        
+        // Check cache first
+        if let cachedData = KeychainManager.cache[key] as? Data {
+            do {
+                let decoder = JSONDecoder()
+                return try decoder.decode(ModelProfile.self, from: cachedData)
+            } catch {
+                print("Failed to decode cached profile: \(error.localizedDescription)")
+            }
+        }
+        
+        // If not in cache, get from keychain
         do {
-            let key = KeychainKey.profilePrefix + id
-            guard let data = try keychain.getData(key) else {
+            guard let data = try KeychainManager.sharedKeychain.getData(key) else {
                 return nil
             }
+            
+            // Store in cache
+            KeychainManager.cache[key] = data
             
             let decoder = JSONDecoder()
             let profile = try decoder.decode(ModelProfile.self, from: data)
@@ -116,12 +152,19 @@ class KeychainManager: ObservableObject {
     }
     
     func deleteProfile(id: String) {
-        do {
-            let key = KeychainKey.profilePrefix + id
-            try keychain.remove(key)
-            print("Profile deleted from keychain: \(id)")
-        } catch {
-            print("Failed to delete profile: \(error.localizedDescription)")
+        let key = KeychainKey.profilePrefix + id
+        
+        // Remove from cache first
+        KeychainManager.cache.removeValue(forKey: key)
+        
+        // Then remove from keychain in background
+        DispatchQueue.global(qos: .background).async {
+            do {
+                try KeychainManager.sharedKeychain.remove(key)
+                print("Profile deleted from keychain: \(id)")
+            } catch {
+                print("Failed to delete profile: \(error.localizedDescription)")
+            }
         }
     }
 }

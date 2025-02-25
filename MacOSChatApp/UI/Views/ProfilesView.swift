@@ -236,17 +236,30 @@ struct ProfileEditorView: View {
         VStack {
             Form {
                 Section(header: Text("Profile Information")) {
-                    TextField("Profile Name", text: $name)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    NativeTextField(
+                        text: $name,
+                        placeholder: "Profile Name"
+                    )
+                    .frame(height: 40)
                     
-                    TextField("API Endpoint", text: $apiEndpoint)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    NativeTextField(
+                        text: $apiEndpoint,
+                        placeholder: "API Endpoint"
+                    )
+                    .frame(height: 40)
                     
-                    SecureField("API Key", text: $apiKey)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    NativeTextField(
+                        text: $apiKey,
+                        placeholder: "API Key",
+                        isSecure: true
+                    )
+                    .frame(height: 40)
                     
-                    TextField("Model Name", text: $modelName)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    NativeTextField(
+                        text: $modelName,
+                        placeholder: "Model Name"
+                    )
+                    .frame(height: 40)
                     
                     Toggle("Set as Default Profile", isOn: $isDefault)
                 }

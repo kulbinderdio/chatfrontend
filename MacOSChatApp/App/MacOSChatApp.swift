@@ -92,7 +92,7 @@ struct MacOSChatApp: App {
         
         Settings {
             SettingsView(viewModel: settingsViewModel, profileManager: profileManager)
-                .frame(width: 600, height: 400)
+                .frame(minWidth: 700, minHeight: 500)
         }
         
         // Temporarily comment out MenuBarExtra until MenuBarComponent is implemented
@@ -189,7 +189,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView(viewModel: settingsViewModel, profileManager: profileManager)
-                .frame(width: 600, height: 400)
+                .frame(minWidth: 700, minHeight: 500)
         }
     }
 }
