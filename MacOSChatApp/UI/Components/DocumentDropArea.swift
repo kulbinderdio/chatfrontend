@@ -33,5 +33,9 @@ struct DocumentDropArea<Content: View>: View {
                 }
                 return true
             }
+            .accessibilityLabel("Document drop area")
+            .accessibilityHint("Drag and drop PDF or TXT files here")
+            .accessibilityAddTraits(.allowsDirectInteraction)
+            .id("DocumentDropArea") // Add identifier for UI testing
     }
 }

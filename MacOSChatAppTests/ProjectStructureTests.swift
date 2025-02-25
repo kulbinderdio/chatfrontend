@@ -57,7 +57,11 @@ class ProjectStructureTests: XCTestCase {
         )
         
         // Create chat view
-        let chatView = ChatView(viewModel: chatViewModel)
+        let conversationListViewModel = ConversationListViewModel(
+            databaseManager: databaseManager,
+            profileManager: profileManager
+        )
+        let chatView = ChatView(viewModel: chatViewModel, conversationListViewModel: conversationListViewModel)
         
         // Test that the views are created correctly
         XCTAssertNotNil(chatView)

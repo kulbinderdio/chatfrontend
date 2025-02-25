@@ -42,7 +42,11 @@ class ChatViewTests: XCTestCase {
             profileManager: mockProfileManager
         )
         
-        view = ChatView(viewModel: viewModel)
+        let mockConversationListViewModel = ConversationListViewModel(
+            databaseManager: mockDatabaseManager,
+            profileManager: mockProfileManager
+        )
+        view = ChatView(viewModel: viewModel, conversationListViewModel: mockConversationListViewModel)
     }
     
     override func tearDown() {

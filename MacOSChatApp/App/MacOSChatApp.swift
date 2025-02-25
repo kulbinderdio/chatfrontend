@@ -10,6 +10,7 @@ struct MacOSChatApp: App {
     @StateObject private var userDefaultsManager: UserDefaultsManager
     @StateObject private var modelConfigManager: ModelConfigurationManager
     @StateObject private var profileManager: ProfileManager
+    @StateObject private var menuBarManager = MenuBarManager()
     
     // Services
     @StateObject private var documentHandler: DocumentHandler
@@ -80,116 +81,28 @@ struct MacOSChatApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView(
-                chatViewModel: chatViewModel,
-                conversationListViewModel: conversationListViewModel,
-                settingsViewModel: settingsViewModel,
-                profileManager: profileManager
-            )
-            .frame(minWidth: 800, minHeight: 600)
+            EmptyView()
+                .frame(width: 0, height: 0)
+                .onAppear {
+                    setupMenuBar()
+                }
         }
         .windowStyle(HiddenTitleBarWindowStyle())
         
         Settings {
-            SettingsView(viewModel: settingsViewModel, profileManager: profileManager)
-                .frame(minWidth: 700, minHeight: 500)
-        }
-        
-        // Temporarily comment out MenuBarExtra until MenuBarComponent is implemented
-        /*
-        MenuBarExtra("MacOSChatApp", systemImage: "bubble.left.and.bubble.right") {
-            MenuBarComponent(
-                chatViewModel: chatViewModel,
-                conversationListViewModel: conversationListViewModel
+            SettingsView(
+                viewModel: settingsViewModel,
+                profileManager: profileManager
             )
         }
-        */
     }
-}
-
-struct ContentView: View {
-    @ObservedObject var chatViewModel: ChatViewModel
-    @ObservedObject var conversationListViewModel: ConversationListViewModel
-    @ObservedObject var settingsViewModel: SettingsViewModel
-    @ObservedObject var profileManager: ProfileManager
     
-    @State private var selectedConversationId: String? = nil
-    @State private var showingSettings = false
-    
-    var body: some View {
-        NavigationView {
-            VStack {
-                // Sidebar with conversation list
-                List(selection: $selectedConversationId) {
-                    ForEach(conversationListViewModel.conversations) { conversation in
-                        NavigationLink(destination: ChatView(viewModel: chatViewModel)) {
-                            VStack(alignment: .leading) {
-                                Text(conversation.title)
-                                    .font(.headline)
-                                
-                                if let profileId = conversation.profileId,
-                                   let profile = profileManager.profiles.first(where: { $0.id == profileId }) {
-                                    Text(profile.name)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                
-                                Text(conversation.updatedAt, style: .date)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .tag(conversation.id)
-                    }
-                }
-                .listStyle(SidebarListStyle())
-                .frame(minWidth: 200)
-                
-                // Toolbar for sidebar
-                HStack {
-                    Button(action: {
-                        conversationListViewModel.createNewConversation()
-                    }) {
-                        Image(systemName: "plus")
-                    }
-                    .buttonStyle(BorderlessButtonStyle())
-                    .help("New Conversation")
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        if let id = selectedConversationId {
-                            conversationListViewModel.deleteConversation(id: id)
-                        }
-                    }) {
-                        Image(systemName: "trash")
-                    }
-                    .buttonStyle(BorderlessButtonStyle())
-                    .disabled(selectedConversationId == nil)
-                    .help("Delete Conversation")
-                    
-                    Button(action: {
-                        showingSettings = true
-                    }) {
-                        Image(systemName: "gear")
-                    }
-                    .buttonStyle(BorderlessButtonStyle())
-                    .help("Settings")
-                }
-                .padding(.horizontal)
-            }
-            
-            // Main content area
-            ChatView(viewModel: chatViewModel)
-        }
-        .onChange(of: selectedConversationId) { id in
-            if let id = id {
-                chatViewModel.loadOrCreateConversation(id: id)
-            }
-        }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView(viewModel: settingsViewModel, profileManager: profileManager)
-                .frame(minWidth: 700, minHeight: 500)
-        }
+    private func setupMenuBar() {
+        let chatView = ChatView(
+            viewModel: chatViewModel,
+            conversationListViewModel: conversationListViewModel
+        )
+        
+        menuBarManager.setupMenuBar(with: chatView)
     }
 }

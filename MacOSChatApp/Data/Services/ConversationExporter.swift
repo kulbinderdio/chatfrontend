@@ -1,4 +1,6 @@
 import Foundation
+import AppKit
+import PDFKit
 
 class ConversationExporter {
     private let databaseManager: DatabaseManager
@@ -7,7 +9,105 @@ class ConversationExporter {
         self.databaseManager = databaseManager
     }
     
-    func exportConversation(_ conversation: Conversation, to url: URL) throws {
+    func exportConversation(_ conversation: Conversation, to url: URL, format: ExportFormat) throws {
+        switch format {
+        case .plainText:
+            try exportAsPlainText(conversation, to: url)
+        case .markdown:
+            try exportAsMarkdown(conversation, to: url)
+        case .pdf:
+            try exportAsPDF(conversation, to: url)
+        case .json:
+            try exportAsJSON(conversation, to: url)
+        }
+    }
+    
+    private func exportAsPlainText(_ conversation: Conversation, to url: URL) throws {
+        var text = "\(conversation.title)\n"
+        text += "Date: \(formatDate(conversation.createdAt))\n\n"
+        
+        for message in conversation.messages {
+            let role = message.role == "user" ? "You" : "Assistant"
+            text += "\(role): \(message.content)\n\n"
+        }
+        
+        try text.write(to: url, atomically: true, encoding: .utf8)
+    }
+    
+    private func exportAsMarkdown(_ conversation: Conversation, to url: URL) throws {
+        var text = "# \(conversation.title)\n\n"
+        text += "Date: \(formatDate(conversation.createdAt))\n\n"
+        
+        for message in conversation.messages {
+            let role = message.role == "user" ? "You" : "Assistant"
+            text += "**\(role)**: \(message.content)\n\n"
+        }
+        
+        try text.write(to: url, atomically: true, encoding: .utf8)
+    }
+    
+    private func exportAsPDF(_ conversation: Conversation, to url: URL) throws {
+        // Create attributed string for PDF
+        let title = NSAttributedString(
+            string: "\(conversation.title)\n",
+            attributes: [
+                .font: NSFont.boldSystemFont(ofSize: 18),
+                .foregroundColor: NSColor.black
+            ]
+        )
+        
+        let dateString = NSAttributedString(
+            string: "Date: \(formatDate(conversation.createdAt))\n\n",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 12),
+                .foregroundColor: NSColor.darkGray
+            ]
+        )
+        
+        let content = NSMutableAttributedString()
+        content.append(title)
+        content.append(dateString)
+        
+        for message in conversation.messages {
+            let role = message.role == "user" ? "You" : "Assistant"
+            let roleString = NSAttributedString(
+                string: "\(role): ",
+                attributes: [
+                    .font: NSFont.boldSystemFont(ofSize: 14),
+                    .foregroundColor: NSColor.black
+                ]
+            )
+            
+            let messageString = NSAttributedString(
+                string: "\(message.content)\n\n",
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 14),
+                    .foregroundColor: NSColor.black
+                ]
+            )
+            
+            content.append(roleString)
+            content.append(messageString)
+        }
+        
+        // Create PDF document
+        let pdfDocument = PDFDocument()
+        
+        // Create a PDF page
+        let pdfPage = PDFPage()
+        
+        // Create text view to render content
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 612 - 72, height: 792 - 72))
+        textView.textStorage?.setAttributedString(content)
+        
+        // Add the text view to the PDF page
+        pdfDocument.insert(pdfPage, at: 0)
+        
+        // Save PDF to file
+        pdfDocument.write(to: url)
+    }
+    
+    private func exportAsJSON(_ conversation: Conversation, to url: URL) throws {
         // Create export data
         var exportData: [String: Any] = [
             "id": conversation.id,
@@ -54,7 +154,7 @@ class ConversationExporter {
             let fileName = "\(conversation.id).json"
             let fileURL = directoryURL.appendingPathComponent(fileName)
             
-            try exportConversation(conversation, to: fileURL)
+            try exportConversation(conversation, to: fileURL, format: .json)
         }
     }
     
@@ -109,8 +209,23 @@ class ConversationExporter {
         
         return conversation
     }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .medium
+        return formatter.string(from: date)
+    }
+}
+
+public enum ExportFormat {
+    case plainText
+    case markdown
+    case pdf
+    case json
 }
 
 enum ExportError: Error {
     case invalidFormat
+    case pdfCreationFailed
 }

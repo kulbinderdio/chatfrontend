@@ -1,101 +1,131 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
+    @ObservedObject var conversationListViewModel: ConversationListViewModel
     @State private var messageText: String = ""
-    @State private var isShowingDocumentPicker = false
+    @State private var isFilePickerPresented: Bool = false
+    @State private var showConversationList: Bool = false
     
     var body: some View {
-        VStack {
-            // Messages list
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    ForEach(viewModel.messages) { message in
-                        MessageBubble(message: message)
+        NavigationView {
+            if showConversationList {
+                // Conversation list sidebar
+                ConversationListView(viewModel: conversationListViewModel)
+                    .frame(minWidth: 250)
+            }
+            
+            // Chat area
+            VStack(spacing: 0) {
+                // Chat header
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            showConversationList.toggle()
+                        }
+                    }) {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 16))
                     }
+                    .buttonStyle(.plain)
+                    .help(showConversationList ? "Hide conversation list" : "Show conversation list")
                     
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .center)
+                    Text(conversationListViewModel.currentConversationTitle ?? "New Conversation")
+                        .font(.headline)
+                        .lineLimit(1)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        createNewConversation()
+                    }) {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 16))
                     }
+                    .buttonStyle(.plain)
+                    .help("New conversation")
+                }
+                .padding()
+                .background(Color(.windowBackgroundColor))
+                
+                Divider()
+                
+                // Chat history
+                ScrollViewReader { scrollView in
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(viewModel.messages) { message in
+                                MessageBubble(message: message)
+                                    .id(message.id)
+                                    .accessibilityElement(children: .combine)
+                                    .accessibilityLabel(message.role == "user" ? "You said" : "Assistant said")
+                                    .accessibilityValue(message.content)
+                            }
+                        }
+                        .padding()
+                    }
+                    .onChange(of: viewModel.messages.count) { _ in
+                        if let lastMessage = viewModel.messages.last {
+                            scrollView.scrollTo(lastMessage.id, anchor: .bottom)
+                        }
+                    }
+                }
+                
+                // Loading indicator
+                if viewModel.isLoading {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .padding(.vertical, 8)
+                        Spacer()
+                    }
+                }
+                
+                Divider()
+                
+                // Input area
+                HStack(alignment: .bottom) {
+                    Button(action: {
+                        isFilePickerPresented = true
+                    }) {
+                        Image(systemName: "paperclip")
+                            .font(.system(size: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Attach a file")
+                    
+                    DocumentDropArea(onDocumentDropped: { url in
+                        viewModel.handleDocumentDropped(url: url)
+                    }) {
+                        TextEditor(text: $messageText)
+                            .frame(minHeight: 36, maxHeight: 120)
+                            .padding(8)
+                            .background(Color(.textBackgroundColor))
+                            .cornerRadius(8)
+                            .accessibilityLabel("Message input")
+                    }
+                    .accessibilityLabel("Document drop area")
+                    .accessibilityHint("Drag and drop PDF or TXT files here")
+                    
+                    Button(action: {
+                        sendMessage()
+                    }) {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.return, modifiers: [.command])
+                    .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
+                    .help("Send message")
                 }
                 .padding()
             }
-            
-            // Error message
-            if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-                    .foregroundColor(.red)
-                    .padding()
-            }
-            
-            // Input area
-            HStack {
-                // Document drop area
-                DocumentDropArea(onDocumentDropped: { url in
-                    viewModel.handleDocumentDropped(url: url)
-                }) {
-                    Image(systemName: "doc.on.doc")
-                        .font(.title2)
-                        .foregroundColor(.blue)
-                }
-                .frame(width: 40, height: 40)
-                
-                // Document picker button
-                Button(action: {
-                    isShowingDocumentPicker = true
-                }) {
-                    Image(systemName: "paperclip")
-                        .font(.title2)
-                }
-                .buttonStyle(BorderlessButtonStyle())
-                .fileImporter(
-                    isPresented: $isShowingDocumentPicker,
-                    allowedContentTypes: [.plainText, .pdf, .rtf, .html],
-                    allowsMultipleSelection: false
-                ) { result in
-                    switch result {
-                    case .success(let urls):
-                        if let url = urls.first {
-                            viewModel.handleDocumentDropped(url: url)
-                        }
-                    case .failure(let error):
-                        viewModel.errorMessage = error.localizedDescription
-                    }
-                }
-                
-                // Text input
-                NativeTextField(
-                    text: $messageText,
-                    placeholder: "Type a message...",
-                    onCommit: {
-                        let trimmedText = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !trimmedText.isEmpty {
-                            viewModel.sendMessage(trimmedText)
-                            messageText = ""
-                        }
-                    }
-                )
-                .frame(height: 40)
-                .padding(.horizontal)
-                
-                // Send button
-                Button(action: {
-                    let trimmedText = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmedText.isEmpty {
-                        viewModel.sendMessage(trimmedText)
-                        messageText = ""
-                    }
-                }) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
-                }
-                .buttonStyle(BorderlessButtonStyle())
-                .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            .padding()
+        }
+        .sheet(isPresented: $isFilePickerPresented) {
+            DocumentPicker(onDocumentPicked: { url in
+                viewModel.handleDocumentDropped(url: url)
+            })
         }
         .sheet(isPresented: $viewModel.showExtractedTextEditor) {
             if let text = viewModel.extractedDocumentText, let documentName = viewModel.extractedDocumentName {
@@ -119,6 +149,45 @@ struct ChatView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+        .onAppear {
+            // Load current conversation
+            if let conversationId = conversationListViewModel.currentConversationId {
+                viewModel.loadOrCreateConversation(id: conversationId)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NewChatRequested"))) { _ in
+            createNewConversation()
+        }
+        // Add keyboard shortcuts
+        .keyboardShortcut("n", modifiers: [.command]) { createNewConversation() }
+        .keyboardShortcut("f", modifiers: [.command]) { showConversationList = true }
+        .keyboardShortcut("d", modifiers: [.command]) { isFilePickerPresented = true }
+    }
+    
+    private func sendMessage() {
+        let trimmedText = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedText.isEmpty && !viewModel.isLoading {
+            viewModel.sendMessage(trimmedText)
+            messageText = ""
+        }
+    }
+    
+    private func createNewConversation() {
+        if let newConversationId = conversationListViewModel.createNewConversation() {
+            viewModel.loadOrCreateConversation(id: newConversationId)
+        }
+    }
+}
+
+extension View {
+    func keyboardShortcut(_ key: KeyEquivalent, modifiers: EventModifiers, action: @escaping () -> Void) -> some View {
+        self.overlay(
+            Button("") {
+                action()
+            }
+            .keyboardShortcut(key, modifiers: modifiers)
+            .opacity(0)
+        )
     }
 }
 
@@ -146,6 +215,14 @@ struct ChatView_Previews: PreviewProvider {
             profileManager: profileManager
         )
         
-        return ChatView(viewModel: viewModel)
+        let conversationListViewModel = ConversationListViewModel(
+            databaseManager: databaseManager,
+            profileManager: profileManager
+        )
+        
+        return ChatView(
+            viewModel: viewModel,
+            conversationListViewModel: conversationListViewModel
+        )
     }
 }

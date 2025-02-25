@@ -16,16 +16,22 @@ struct MessageBubble: View {
                     .background(bubbleColor)
                     .foregroundColor(textColor)
                     .cornerRadius(10)
+                    .accessibilityLabel(message.role == "user" ? "You said" : "Assistant said")
+                    .accessibilityValue(message.content)
                 
                 Text(formattedTime)
                     .font(.caption2)
                     .foregroundColor(.secondary)
+                    .accessibilityLabel("Sent at \(formattedTime)")
             }
             
             if message.role != "user" {
                 Spacer()
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(message.role == "user" ? "Your message" : "Assistant's response")
+        .id("MessageBubble") // Add identifier for UI testing
     }
     
     private var bubbleColor: Color {

@@ -485,6 +485,18 @@ class DatabaseManager: ObservableObject {
         return nil
     }
     
+    // MARK: - Count Methods
+    
+    func getConversationCount() -> Int {
+        do {
+            let count = try db.scalar(DatabaseSchema.conversations.count)
+            return count
+        } catch {
+            print("Error getting conversation count: \(error.localizedDescription)")
+            return 0
+        }
+    }
+    
     // MARK: - Search Methods
     
     func searchConversations(query: String) -> [Conversation] {

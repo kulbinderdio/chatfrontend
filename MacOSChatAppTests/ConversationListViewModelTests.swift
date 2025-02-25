@@ -95,7 +95,7 @@ class ConversationListViewModelTests: XCTestCase {
         mockDatabaseManager.createConversationResult = conversation
         
         // Create a new conversation
-        viewModel.createNewConversation()
+        _ = viewModel.createNewConversation()
         
         // Check that the conversation was created with the correct profile ID
         XCTAssertEqual(mockDatabaseManager.lastCreatedConversationProfileId, "test-profile")
@@ -165,10 +165,9 @@ class ConversationListViewModelTests: XCTestCase {
         viewModel.conversations = [conversation]
         
         // Export the conversation
-        let tempDir = FileManager.default.temporaryDirectory
-        let fileURL = tempDir.appendingPathComponent("test-conversation.json")
+        // No need to create a file URL since we're using the mock implementation
         
-        viewModel.exportConversation(id: conversation.id, to: fileURL)
+        viewModel.exportConversation(conversation: conversation, format: .json)
         
         // Check that the conversation was exported
         XCTAssertNil(viewModel.errorMessage)

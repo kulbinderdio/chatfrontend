@@ -53,7 +53,7 @@ class ConversationExporterTests: XCTestCase {
         
         // Export the conversation
         do {
-            try exporter.exportConversation(testConversation, to: fileURL)
+            try exporter.exportConversation(testConversation, to: fileURL, format: .json)
             
             // Check that the file exists
             XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
@@ -85,7 +85,7 @@ class ConversationExporterTests: XCTestCase {
         
         // Export the conversation first
         do {
-            try exporter.exportConversation(testConversation, to: fileURL)
+            try exporter.exportConversation(testConversation, to: fileURL, format: .json)
             
             // Import the conversation
             let importedConversation = try exporter.importConversation(from: fileURL)
