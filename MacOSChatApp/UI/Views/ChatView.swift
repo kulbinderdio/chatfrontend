@@ -2,32 +2,78 @@ import SwiftUI
 
 struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
+    @State private var messageText: String = ""
+    @State private var isFilePickerPresented: Bool = false
     
     var body: some View {
-        VStack {
-            Text("Chat Interface")
-                .font(.title)
-                .padding()
-            
-            Spacer()
-            
-            Text("This is a placeholder for the chat interface.")
-                .foregroundColor(.secondary)
-            
-            Spacer()
-            
-            HStack {
-                TextField("Type a message...", text: .constant(""))
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                
-                Button(action: {}) {
-                    Image(systemName: "paperplane.fill")
+        VStack(spacing: 0) {
+            // Chat history
+            ScrollViewReader { scrollView in
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(viewModel.messages) { message in
+                            MessageBubble(message: message)
+                                .id(message.id)
+                        }
+                    }
+                    .padding()
                 }
-                .buttonStyle(BorderedButtonStyle())
+                .onChange(of: viewModel.messages.count) { _ in
+                    if let lastMessage = viewModel.messages.last {
+                        scrollView.scrollTo(lastMessage.id, anchor: .bottom)
+                    }
+                }
+            }
+            
+            Divider()
+            
+            // Input area
+            HStack(alignment: .bottom) {
+                Button(action: {
+                    isFilePickerPresented = true
+                }) {
+                    Image(systemName: "paperclip")
+                        .font(.system(size: 16))
+                }
+                .buttonStyle(.plain)
+                .help("Attach a file")
+                
+                DocumentDropArea(onDocumentDropped: { url in
+                    viewModel.handleDocumentDropped(url: url)
+                }) {
+                    TextEditor(text: $messageText)
+                        .frame(minHeight: 36, maxHeight: 120)
+                        .padding(8)
+                        .background(Color(.textBackgroundColor))
+                        .cornerRadius(8)
+                }
+                
+                Button(action: {
+                    sendMessage()
+                }) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 16))
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.return, modifiers: [.command])
+                .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
+                .help("Send message")
             }
             .padding()
         }
-        .padding()
+        .sheet(isPresented: $isFilePickerPresented) {
+            DocumentPicker(onDocumentPicked: { url in
+                viewModel.handleDocumentDropped(url: url)
+            })
+        }
+    }
+    
+    private func sendMessage() {
+        let trimmedText = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedText.isEmpty && !viewModel.isLoading {
+            viewModel.sendMessage(content: trimmedText)
+            messageText = ""
+        }
     }
 }
 

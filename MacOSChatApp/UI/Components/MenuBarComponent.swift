@@ -6,7 +6,7 @@ class MenuBarManager: NSObject {
     private var popover: NSPopover?
     private var eventMonitor: EventMonitor?
     
-    func setupMenuBar(with rootView: some View) {
+    func setupMenuBar(with rootView: ChatView) {
         // Create the popover
         let popover = NSPopover()
         popover.contentSize = NSSize(width: 400, height: 600)

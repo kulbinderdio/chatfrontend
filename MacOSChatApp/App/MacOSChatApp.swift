@@ -2,24 +2,28 @@ import SwiftUI
 
 @main
 struct MacOSChatApp: App {
+    @StateObject private var chatViewModel = ChatViewModel()
+    @StateObject private var settingsViewModel = SettingsViewModel()
+    
+    private let menuBarManager = MenuBarManager()
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .frame(minWidth: 800, minHeight: 600)
+            EmptyView()
+                .frame(width: 0, height: 0)
+                .onAppear {
+                    setupMenuBar()
+                }
         }
         .windowStyle(HiddenTitleBarWindowStyle())
         
         Settings {
-            SettingsView()
+            SettingsView(viewModel: settingsViewModel)
         }
     }
-}
-
-// Temporary ContentView until we implement the actual ChatView
-struct ContentView: View {
-    var body: some View {
-        Text("MacOS Chat App - Coming Soon")
-            .font(.largeTitle)
-            .padding()
+    
+    private func setupMenuBar() {
+        let chatView = ChatView(viewModel: chatViewModel)
+        menuBarManager.setupMenuBar(with: chatView)
     }
 }

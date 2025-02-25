@@ -24,8 +24,7 @@ struct DocumentDropArea<Content: View>: View {
                             let url = NSURL(absoluteURLWithDataRepresentation: urlData, relativeTo: nil) as URL
                             
                             // Check if file is PDF or TXT
-                            let fileExtension = url.pathExtension.lowercased()
-                            if fileExtension == "pdf" || fileExtension == "txt" {
+                            if url.pathExtension.lowercased() == "pdf" || url.pathExtension.lowercased() == "txt" {
                                 onDocumentDropped(url)
                             }
                         }
