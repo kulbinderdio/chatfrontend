@@ -16,7 +16,7 @@ class ChatViewModel: ObservableObject {
     let documentHandler: DocumentHandler
     private let profileManager: ProfileManager
     
-    private var currentConversationId: String?
+    private(set) var currentConversationId: String?
     private var cancellables = Set<AnyCancellable>()
     
     init(modelConfigManager: ModelConfigurationManager, databaseManager: DatabaseManager, documentHandler: DocumentHandler, profileManager: ProfileManager) {
@@ -82,6 +82,21 @@ class ChatViewModel: ObservableObject {
         } else {
             // Create a new conversation
             createNewConversation()
+        }
+    }
+    
+    // Method to directly load a conversation object
+    func loadConversation(id: String) {
+        if let conversation = databaseManager.getConversation(id: id) {
+            currentConversationId = conversation.id
+            messages = conversation.messages
+            
+            // If conversation has a profile, use it
+            if let profileId = conversation.profileId {
+                if profileManager.profiles.contains(where: { $0.id == profileId }) {
+                    profileManager.selectProfile(id: profileId)
+                }
+            }
         }
     }
     
