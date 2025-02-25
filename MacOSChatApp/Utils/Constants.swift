@@ -27,7 +27,7 @@ enum UIConstants {
     static let primaryColor = Color.blue
     static let secondaryColor = Color.gray
     static let userBubbleColor = Color.blue
-    static let assistantBubbleColor = Color(.systemGray5)
+    static let assistantBubbleColor = Color.gray.opacity(0.3)
     
     // Sizes
     static let minWindowWidth: CGFloat = 800

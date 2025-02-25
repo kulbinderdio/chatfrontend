@@ -32,7 +32,7 @@ struct MessageBubble: View {
         if message.role == "user" {
             return Color.blue
         } else {
-            return colorScheme == .dark ? Color(.systemGray5) : Color(.systemGray6)
+            return colorScheme == .dark ? Color.gray.opacity(0.3) : Color.gray.opacity(0.1)
         }
     }
     

@@ -17,7 +17,7 @@ struct DocumentDropArea<Content: View>: View {
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(isTargeted ? Color.blue : Color.clear, lineWidth: 2)
             )
-            .onDrop(of: ["public.file-url"], isTargeted: $isTargeted) { providers -> Bool
+            .onDrop(of: ["public.file-url"], isTargeted: $isTargeted) { providers -> Bool in
                 providers.first?.loadItem(forTypeIdentifier: "public.file-url", options: nil) { urlData, _ in
                     DispatchQueue.main.async {
                         if let urlData = urlData as? Data {

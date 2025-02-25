@@ -96,6 +96,7 @@ struct ProfileEditorView: View {
     @State private var modelName: String = ""
     @State private var temperature: Double = 0.7
     @State private var maxTokens: Int = 2048
+    @State private var maxTokensDouble: Double = 2048.0
     @State private var topP: Double = 1.0
     @State private var frequencyPenalty: Double = 0.0
     @State private var presencePenalty: Double = 0.0
@@ -127,7 +128,10 @@ struct ProfileEditorView: View {
                     
                     VStack(alignment: .leading) {
                         Text("Max Tokens: \(maxTokens)")
-                        Slider(value: $maxTokensDouble, in: 256...4096, step: 256)
+                        Slider(value: $maxTokensDouble, in: 256.0...4096.0, step: 256.0)
+                            .onChange(of: maxTokensDouble) { newValue in
+                                maxTokens = Int(newValue)
+                            }
                     }
                     
                     VStack(alignment: .leading) {
@@ -158,7 +162,7 @@ struct ProfileEditorView: View {
                     viewModel.testConnection(endpoint: apiEndpoint, key: apiKey, model: modelName)
                 }
                 
-                Button(mode == .add ? "Add" : "Save") {
+                Button {
                     let parameters = ModelParameters(
                         temperature: temperature,
                         maxTokens: maxTokens,
@@ -167,8 +171,7 @@ struct ProfileEditorView: View {
                         presencePenalty: presencePenalty
                     )
                     
-                    switch mode {
-                    case .add:
+                    if case .add = mode {
                         viewModel.addProfile(
                             name: name,
                             apiEndpoint: apiEndpoint,
@@ -176,7 +179,7 @@ struct ProfileEditorView: View {
                             modelName: modelName,
                             parameters: parameters
                         )
-                    case .edit(let profile):
+                    } else if case .edit(let profile) = mode {
                         viewModel.updateProfile(
                             id: profile.id,
                             name: name,
@@ -188,6 +191,12 @@ struct ProfileEditorView: View {
                     }
                     
                     presentationMode.wrappedValue.dismiss()
+                } label: {
+                    if case .add = mode {
+                        Text("Add")
+                    } else {
+                        Text("Save")
+                    }
                 }
                 .disabled(name.isEmpty || apiEndpoint.isEmpty || apiKey.isEmpty || modelName.isEmpty)
             }
@@ -203,18 +212,12 @@ struct ProfileEditorView: View {
                 modelName = profile.modelName
                 temperature = profile.parameters.temperature
                 maxTokens = profile.parameters.maxTokens
+                maxTokensDouble = Double(maxTokens)
                 topP = profile.parameters.topP
                 frequencyPenalty = profile.parameters.frequencyPenalty
                 presencePenalty = profile.parameters.presencePenalty
             }
         }
-    }
-    
-    private var maxTokensDouble: Binding<Double> {
-        Binding<Double>(
-            get: { Double(maxTokens) },
-            set: { maxTokens = Int($0) }
-        )
     }
 }
 

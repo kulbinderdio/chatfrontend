@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct DocumentPicker: NSViewRepresentable {
     let onDocumentPicked: (URL) -> Void
@@ -11,7 +12,11 @@ struct DocumentPicker: NSViewRepresentable {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedFileTypes = ["pdf", "txt"]
+        if #available(macOS 12.0, *) {
+            panel.allowedContentTypes = [UTType.pdf, UTType.plainText]
+        } else {
+            panel.allowedFileTypes = ["pdf", "txt"]
+        }
         
         panel.begin { response in
             if response == .OK, let url = panel.url {

@@ -23,7 +23,8 @@ class ProjectStructureTests: XCTestCase {
         // Verify core views can be instantiated
         let chatViewModel = ChatViewModel()
         let chatView = ChatView(viewModel: chatViewModel)
-        let settingsView = SettingsView()
+        let settingsViewModel = SettingsViewModel()
+        let settingsView = SettingsView(viewModel: settingsViewModel)
         
         XCTAssertNotNil(chatView, "ChatView should be instantiable")
         XCTAssertNotNil(settingsView, "SettingsView should be instantiable")
