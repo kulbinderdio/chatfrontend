@@ -1,6 +1,7 @@
 import Foundation
+import Combine
 
-class UserDefaultsManager {
+class UserDefaultsManager: ObservableObject {
     private let defaults = UserDefaults.standard
     
     // Keys
@@ -12,10 +13,11 @@ class UserDefaultsManager {
         static let topP = "top_p"
         static let frequencyPenalty = "frequency_penalty"
         static let presencePenalty = "presence_penalty"
+        static let darkModeEnabled = "dark_mode_enabled"
+        static let fontSize = "font_size"
+        static let defaultProfileId = "default_profile_id"
         static let ollamaEnabled = "ollama_enabled"
         static let ollamaEndpoint = "ollama_endpoint"
-        static let defaultProfileId = "default_profile_id"
-        static let darkModeEnabled = "dark_mode_enabled"
     }
     
     // MARK: - API Configuration
@@ -28,8 +30,6 @@ class UserDefaultsManager {
         return defaults.string(forKey: DefaultsKey.apiEndpoint) ?? "https://api.openai.com/v1/chat/completions"
     }
     
-    // MARK: - Model Configuration
-    
     func saveSelectedModel(_ model: String) {
         defaults.set(model, forKey: DefaultsKey.selectedModel)
     }
@@ -37,6 +37,8 @@ class UserDefaultsManager {
     func getSelectedModel() -> String {
         return defaults.string(forKey: DefaultsKey.selectedModel) ?? "gpt-3.5-turbo"
     }
+    
+    // MARK: - Model Parameters
     
     func saveTemperature(_ temperature: Double) {
         defaults.set(temperature, forKey: DefaultsKey.temperature)
@@ -78,7 +80,35 @@ class UserDefaultsManager {
         return defaults.double(forKey: DefaultsKey.presencePenalty)
     }
     
-    // MARK: - Ollama Configuration
+    // MARK: - Appearance
+    
+    func saveDarkModeEnabled(_ enabled: Bool) {
+        defaults.set(enabled, forKey: DefaultsKey.darkModeEnabled)
+    }
+    
+    func getDarkModeEnabled() -> Bool {
+        return defaults.bool(forKey: DefaultsKey.darkModeEnabled)
+    }
+    
+    func saveFontSize(_ size: String) {
+        defaults.set(size, forKey: DefaultsKey.fontSize)
+    }
+    
+    func getFontSize() -> String {
+        return defaults.string(forKey: DefaultsKey.fontSize) ?? "medium"
+    }
+    
+    // MARK: - Profiles
+    
+    func saveDefaultProfileId(_ id: String) {
+        defaults.set(id, forKey: DefaultsKey.defaultProfileId)
+    }
+    
+    func getDefaultProfileId() -> String? {
+        return defaults.string(forKey: DefaultsKey.defaultProfileId)
+    }
+    
+    // MARK: - Ollama
     
     func saveOllamaEnabled(_ enabled: Bool) {
         defaults.set(enabled, forKey: DefaultsKey.ollamaEnabled)
@@ -94,47 +124,5 @@ class UserDefaultsManager {
     
     func getOllamaEndpoint() -> String {
         return defaults.string(forKey: DefaultsKey.ollamaEndpoint) ?? "http://localhost:11434"
-    }
-    
-    // MARK: - Profile Configuration
-    
-    func saveDefaultProfileId(_ profileId: String) {
-        defaults.set(profileId, forKey: DefaultsKey.defaultProfileId)
-    }
-    
-    func getDefaultProfileId() -> String? {
-        return defaults.string(forKey: DefaultsKey.defaultProfileId)
-    }
-    
-    // MARK: - Appearance Configuration
-    
-    func saveDarkModeEnabled(_ enabled: Bool) {
-        defaults.set(enabled, forKey: DefaultsKey.darkModeEnabled)
-    }
-    
-    func getDarkModeEnabled() -> Bool {
-        return defaults.bool(forKey: DefaultsKey.darkModeEnabled)
-    }
-    
-    // MARK: - Reset
-    
-    func resetToDefaults() {
-        let keys = [
-            DefaultsKey.apiEndpoint,
-            DefaultsKey.selectedModel,
-            DefaultsKey.temperature,
-            DefaultsKey.maxTokens,
-            DefaultsKey.topP,
-            DefaultsKey.frequencyPenalty,
-            DefaultsKey.presencePenalty,
-            DefaultsKey.ollamaEnabled,
-            DefaultsKey.ollamaEndpoint,
-            DefaultsKey.defaultProfileId,
-            DefaultsKey.darkModeEnabled
-        ]
-        
-        for key in keys {
-            defaults.removeObject(forKey: key)
-        }
     }
 }

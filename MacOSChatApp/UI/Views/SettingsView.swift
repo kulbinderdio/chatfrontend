@@ -2,77 +2,62 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var viewModel: SettingsViewModel
+    @ObservedObject var profileManager: ProfileManager
+    
     @State private var selectedTab = 0
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            APIConfigView(viewModel: viewModel)
+            GeneralSettingsView(viewModel: viewModel)
                 .tabItem {
-                    Label("API", systemImage: "key.fill")
+                    Label("General", systemImage: "gear")
                 }
                 .tag(0)
             
-            ModelSettingsView(viewModel: viewModel)
-                .tabItem {
-                    Label("Model", systemImage: "gear")
-                }
-                .tag(1)
-            
-            ProfilesView(viewModel: viewModel)
+            ProfilesView(profileManager: profileManager)
                 .tabItem {
                     Label("Profiles", systemImage: "person.crop.circle")
                 }
+                .tag(1)
+            
+            AdvancedSettingsView(viewModel: viewModel)
+                .tabItem {
+                    Label("Advanced", systemImage: "gearshape.2")
+                }
                 .tag(2)
             
-            AppearanceView(viewModel: viewModel)
+            AboutView()
                 .tabItem {
-                    Label("Appearance", systemImage: "paintbrush.fill")
+                    Label("About", systemImage: "info.circle")
                 }
                 .tag(3)
-            
-            AdvancedView(viewModel: viewModel)
-                .tabItem {
-                    Label("Advanced", systemImage: "slider.horizontal.3")
-                }
-                .tag(4)
         }
         .padding()
-        .frame(width: 500, height: 400)
     }
 }
 
-// API Configuration tab
-struct APIConfigView: View {
+struct GeneralSettingsView: View {
     @ObservedObject var viewModel: SettingsViewModel
-    @State private var apiKey: String = ""
-    @State private var apiEndpoint: String = ""
     
     var body: some View {
-        VStack {
-            VStack(alignment: .leading) {
-                Text("API Configuration")
-                    .font(.headline)
-                TextField("API Endpoint", text: $apiEndpoint)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .onAppear {
-                        apiEndpoint = viewModel.apiEndpoint
-                    }
+        Form {
+            Section(header: Text("Appearance")) {
+                Toggle("Use System Appearance", isOn: $viewModel.useSystemAppearance)
                 
-                SecureField("API Key", text: $apiKey)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .onAppear {
-                        apiKey = viewModel.apiKey
-                    }
-                
-                Button("Save") {
-                    viewModel.updateAPIConfig(endpoint: apiEndpoint, key: apiKey)
+                if !viewModel.useSystemAppearance {
+                    Toggle("Dark Mode", isOn: $viewModel.darkModeEnabled)
+                        .disabled(viewModel.useSystemAppearance)
                 }
-                .disabled(apiEndpoint.isEmpty || apiKey.isEmpty)
+                
+                Picker("Font Size", selection: $viewModel.fontSize) {
+                    Text("Small").tag("small")
+                    Text("Medium").tag("medium")
+                    Text("Large").tag("large")
+                }
+                .pickerStyle(SegmentedPickerStyle())
             }
             
-            VStack(alignment: .leading) {
-                Text("Ollama Integration")
-                    .font(.headline)
+            Section(header: Text("Ollama Integration")) {
                 Toggle("Enable Ollama", isOn: $viewModel.ollamaEnabled)
                 
                 if viewModel.ollamaEnabled {
@@ -80,30 +65,8 @@ struct APIConfigView: View {
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                 }
             }
-        }
-    }
-}
-
-// Model Settings tab
-struct ModelSettingsView: View {
-    @ObservedObject var viewModel: SettingsViewModel
-    
-    var body: some View {
-        VStack {
-            VStack(alignment: .leading) {
-                Text("Model Selection")
-                    .font(.headline)
-                Picker("Model", selection: $viewModel.selectedModel) {
-                    ForEach(viewModel.availableModels, id: \.self) { model in
-                        Text(model).tag(model)
-                    }
-                }
-                .pickerStyle(DefaultPickerStyle())
-            }
             
-            VStack(alignment: .leading) {
-                Text("Parameters")
-                    .font(.headline)
+            Section(header: Text("Model Parameters")) {
                 VStack(alignment: .leading) {
                     Text("Temperature: \(viewModel.temperature, specifier: "%.1f")")
                     Slider(value: $viewModel.temperature, in: 0...2, step: 0.1)
@@ -128,80 +91,94 @@ struct ModelSettingsView: View {
                     Text("Presence Penalty: \(viewModel.presencePenalty, specifier: "%.1f")")
                     Slider(value: $viewModel.presencePenalty, in: 0...2, step: 0.1)
                 }
-            }
-            
-            Button("Reset to Defaults") {
-                viewModel.resetToDefaults()
-            }
-        }
-    }
-}
-
-// Appearance tab
-struct AppearanceView: View {
-    @ObservedObject var viewModel: SettingsViewModel
-    
-    var body: some View {
-        VStack {
-            VStack(alignment: .leading) {
-                Text("Theme")
-                    .font(.headline)
-                Toggle("Use System Appearance", isOn: $viewModel.useSystemAppearance)
                 
-                if !viewModel.useSystemAppearance {
-                    Picker("Theme", selection: $viewModel.darkModeEnabled) {
-                        Text("Light").tag(false)
-                        Text("Dark").tag(true)
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
+                Button("Reset to Defaults") {
+                    viewModel.resetToDefaults()
                 }
-            }
-            
-            VStack(alignment: .leading) {
-                Text("Font Size")
-                    .font(.headline)
-                Picker("Font Size", selection: $viewModel.fontSize) {
-                    Text("Small").tag("small")
-                    Text("Medium").tag("medium")
-                    Text("Large").tag("large")
-                }
-                .pickerStyle(SegmentedPickerStyle())
             }
         }
     }
 }
 
-// Advanced tab
-struct AdvancedView: View {
+struct AdvancedSettingsView: View {
     @ObservedObject var viewModel: SettingsViewModel
+    @State private var showingClearHistoryAlert = false
+    @State private var showingResetSettingsAlert = false
     
     var body: some View {
-        VStack {
-            VStack(alignment: .leading) {
-                Text("Application")
-                    .font(.headline)
+        Form {
+            Section(header: Text("Application")) {
                 Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
                 Toggle("Show in Dock", isOn: $viewModel.showInDock)
             }
             
-            VStack(alignment: .leading) {
-                Text("Data")
-                    .font(.headline)
+            Section(header: Text("Data Management")) {
                 Button("Clear Conversation History") {
-                    viewModel.clearConversationHistory()
+                    showingClearHistoryAlert = true
                 }
                 .foregroundColor(.red)
                 
                 Button("Reset All Settings") {
-                    viewModel.resetAllSettings()
+                    showingResetSettingsAlert = true
                 }
                 .foregroundColor(.red)
             }
         }
+        .alert(isPresented: $showingClearHistoryAlert) {
+            Alert(
+                title: Text("Clear Conversation History"),
+                message: Text("Are you sure you want to clear all conversation history? This action cannot be undone."),
+                primaryButton: .destructive(Text("Clear")) {
+                    viewModel.clearConversationHistory()
+                },
+                secondaryButton: .cancel()
+            )
+        }
+        .alert(isPresented: $showingResetSettingsAlert) {
+            Alert(
+                title: Text("Reset All Settings"),
+                message: Text("Are you sure you want to reset all settings to their default values? This action cannot be undone."),
+                primaryButton: .destructive(Text("Reset")) {
+                    viewModel.resetAllSettings()
+                },
+                secondaryButton: .cancel()
+            )
+        }
     }
 }
 
-// Preview provider for SwiftUI Canvas
+struct AboutView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 100, height: 100)
+                .foregroundColor(.blue)
+            
+            Text("MacOSChatApp")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+            
+            Text("Version 1.0.0")
+                .font(.headline)
+            
+            Text("© 2025 Your Company")
+                .font(.caption)
+            
+            Spacer()
+            
+            HStack {
+                Link("Privacy Policy", destination: URL(string: "https://example.com/privacy")!)
+                Spacer()
+                Link("Terms of Service", destination: URL(string: "https://example.com/terms")!)
+            }
+            .padding(.horizontal)
+        }
+        .padding()
+    }
+}
+
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
         let keychainManager = KeychainManager()
@@ -216,13 +193,16 @@ struct SettingsView_Previews: PreviewProvider {
             fatalError("Failed to initialize DatabaseManager for preview: \(error.localizedDescription)")
         }
         
+        let profileManager = ProfileManager(databaseManager: databaseManager, keychainManager: keychainManager)
+        
         let viewModel = SettingsViewModel(
             modelConfigManager: modelConfigManager,
             keychainManager: keychainManager,
             userDefaultsManager: userDefaultsManager,
-            databaseManager: databaseManager
+            databaseManager: databaseManager,
+            profileManager: profileManager
         )
         
-        return SettingsView(viewModel: viewModel)
+        return SettingsView(viewModel: viewModel, profileManager: profileManager)
     }
 }

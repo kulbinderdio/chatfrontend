@@ -1,11 +1,4 @@
 import Foundation
-import AppKit
-
-enum ExportFormat {
-    case plainText
-    case markdown
-    case pdf
-}
 
 class ConversationExporter {
     private let databaseManager: DatabaseManager
@@ -14,140 +7,110 @@ class ConversationExporter {
         self.databaseManager = databaseManager
     }
     
-    func exportConversation(id: String, format: ExportFormat) -> URL? {
-        guard let conversation = databaseManager.getConversation(id: id) else {
-            return nil
-        }
-        
-        switch format {
-        case .plainText:
-            return exportAsPlainText(conversation: conversation)
-        case .markdown:
-            return exportAsMarkdown(conversation: conversation)
-        case .pdf:
-            return exportAsPDF(conversation: conversation)
-        }
-    }
-    
-    private func exportAsPlainText(conversation: Conversation) -> URL? {
-        let fileManager = FileManager.default
-        let tempDir = fileManager.temporaryDirectory
-        let fileName = "\(conversation.title.replacingOccurrences(of: " ", with: "_")).txt"
-        let fileURL = tempDir.appendingPathComponent(fileName)
-        
-        let content = conversation.exportAsText()
-        
-        do {
-            try content.write(to: fileURL, atomically: true, encoding: .utf8)
-            return fileURL
-        } catch {
-            print("Failed to export conversation as plain text: \(error.localizedDescription)")
-            return nil
-        }
-    }
-    
-    private func exportAsMarkdown(conversation: Conversation) -> URL? {
-        let fileManager = FileManager.default
-        let tempDir = fileManager.temporaryDirectory
-        let fileName = "\(conversation.title.replacingOccurrences(of: " ", with: "_")).md"
-        let fileURL = tempDir.appendingPathComponent(fileName)
-        
-        let content = conversation.exportAsMarkdown()
-        
-        do {
-            try content.write(to: fileURL, atomically: true, encoding: .utf8)
-            return fileURL
-        } catch {
-            print("Failed to export conversation as markdown: \(error.localizedDescription)")
-            return nil
-        }
-    }
-    
-    private func exportAsPDF(conversation: Conversation) -> URL? {
-        let fileManager = FileManager.default
-        let tempDir = fileManager.temporaryDirectory
-        let fileName = "\(conversation.title.replacingOccurrences(of: " ", with: "_")).pdf"
-        let fileURL = tempDir.appendingPathComponent(fileName)
-        
-        // Create an attributed string with the conversation content
-        let content = NSMutableAttributedString()
-        
-        // Title
-        let titleAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.boldSystemFont(ofSize: 18)
-        ]
-        content.append(NSAttributedString(string: "\(conversation.title)\n\n", attributes: titleAttributes))
-        
-        // Date
-        let dateAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 12),
-            .foregroundColor: NSColor.gray
+    func exportConversation(_ conversation: Conversation, to url: URL) throws {
+        // Create export data
+        var exportData: [String: Any] = [
+            "id": conversation.id,
+            "title": conversation.title,
+            "createdAt": conversation.createdAt.timeIntervalSince1970,
+            "updatedAt": conversation.updatedAt.timeIntervalSince1970
         ]
         
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .medium
-        dateFormatter.timeStyle = .short
+        // Add messages
+        var messagesData: [[String: Any]] = []
         
-        content.append(NSAttributedString(string: "Created: \(dateFormatter.string(from: conversation.createdAt))\n", attributes: dateAttributes))
-        content.append(NSAttributedString(string: "Last updated: \(dateFormatter.string(from: conversation.updatedAt))\n\n", attributes: dateAttributes))
-        
-        // Messages
         for message in conversation.messages {
-            let roleAttributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.boldSystemFont(ofSize: 14)
+            let messageData: [String: Any] = [
+                "id": message.id,
+                "role": message.role,
+                "content": message.content,
+                "timestamp": message.timestamp.timeIntervalSince1970
             ]
             
-            let role = message.role == "user" ? "You" : "Assistant"
-            content.append(NSAttributedString(string: "\(role) - \(dateFormatter.string(from: message.timestamp))\n", attributes: roleAttributes))
+            messagesData.append(messageData)
+        }
+        
+        exportData["messages"] = messagesData
+        
+        // Convert to JSON
+        let jsonData = try JSONSerialization.data(withJSONObject: exportData, options: .prettyPrinted)
+        
+        // Write to file
+        try jsonData.write(to: url)
+    }
+    
+    func exportAllConversations(to directoryURL: URL) throws {
+        // Get all conversations
+        let conversations = databaseManager.getAllConversations(limit: 1000)
+        
+        // Create directory if it doesn't exist
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: directoryURL.path) {
+            try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        }
+        
+        // Export each conversation
+        for conversation in conversations {
+            let fileName = "\(conversation.id).json"
+            let fileURL = directoryURL.appendingPathComponent(fileName)
             
-            let messageAttributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 12)
-            ]
-            content.append(NSAttributedString(string: "\(message.content)\n\n", attributes: messageAttributes))
-        }
-        
-        // Create PDF context
-        guard let pdfData = createPDFData(from: content) else {
-            return nil
-        }
-        
-        do {
-            try pdfData.write(to: fileURL)
-            return fileURL
-        } catch {
-            print("Failed to export conversation as PDF: \(error.localizedDescription)")
-            return nil
+            try exportConversation(conversation, to: fileURL)
         }
     }
     
-    private func createPDFData(from attributedString: NSAttributedString) -> Data? {
-        let pdfData = NSMutableData()
+    func importConversation(from url: URL) throws -> Conversation {
+        // Read JSON data
+        let data = try Data(contentsOf: url)
         
-        // Create PDF context
-        guard let pdfContext = CGContext(consumer: CGDataConsumer(data: pdfData as CFMutableData)!, mediaBox: nil, nil) else {
-            return nil
+        // Parse JSON
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let id = json["id"] as? String,
+              let title = json["title"] as? String,
+              let createdAtTimestamp = json["createdAt"] as? TimeInterval,
+              let updatedAtTimestamp = json["updatedAt"] as? TimeInterval,
+              let messagesData = json["messages"] as? [[String: Any]] else {
+            throw ExportError.invalidFormat
         }
         
-        // Begin PDF page
-        pdfContext.beginPDFPage(nil)
+        // Create conversation
+        let createdAt = Date(timeIntervalSince1970: createdAtTimestamp)
+        let updatedAt = Date(timeIntervalSince1970: updatedAtTimestamp)
         
-        // Create text frame
-        let frameSetter = CTFramesetterCreateWithAttributedString(attributedString)
-        let pageRect = CGRect(x: 20, y: 20, width: 572, height: 752) // US Letter size (612x792) with margins
-        let path = CGPath(rect: pageRect, transform: nil)
-        let frame = CTFramesetterCreateFrame(frameSetter, CFRange(location: 0, length: attributedString.length), path, nil)
+        var messages: [Message] = []
         
-        // Flip coordinates for PDF context
-        pdfContext.translateBy(x: 0, y: 792)
-        pdfContext.scaleBy(x: 1.0, y: -1.0)
+        for messageData in messagesData {
+            guard let id = messageData["id"] as? String,
+                  let role = messageData["role"] as? String,
+                  let content = messageData["content"] as? String,
+                  let timestampValue = messageData["timestamp"] as? TimeInterval else {
+                continue
+            }
+            
+            let timestamp = Date(timeIntervalSince1970: timestampValue)
+            
+            let message = Message(
+                id: id,
+                role: role,
+                content: content,
+                timestamp: timestamp
+            )
+            
+            messages.append(message)
+        }
         
-        // Draw text
-        CTFrameDraw(frame, pdfContext)
+        let conversation = Conversation(
+            id: id,
+            title: title,
+            messages: messages,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            profileId: nil
+        )
         
-        // End PDF page and context
-        pdfContext.endPDFPage()
-        pdfContext.closePDF()
-        
-        return pdfData as Data
+        return conversation
     }
+}
+
+enum ExportError: Error {
+    case invalidFormat
 }

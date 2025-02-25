@@ -8,30 +8,28 @@ class ConversationListViewModel: ObservableObject {
     @Published var searchQuery: String = ""
     
     private let databaseManager: DatabaseManager
-    private let exporter: ConversationExporter
+    private let profileManager: ProfileManager
     
     private var cancellables = Set<AnyCancellable>()
     
-    init(databaseManager: DatabaseManager, exporter: ConversationExporter) {
+    init(databaseManager: DatabaseManager, profileManager: ProfileManager) {
         self.databaseManager = databaseManager
-        self.exporter = exporter
+        self.profileManager = profileManager
         
-        // Set up search query publisher
+        loadConversations()
+        
+        // Set up search publisher
         $searchQuery
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .removeDuplicates()
             .sink { [weak self] query in
-                self?.performSearch(query: query)
+                self?.searchConversations(query: query)
             }
             .store(in: &cancellables)
-        
-        // Load initial conversations
-        loadConversations()
     }
     
     func loadConversations() {
         isLoading = true
-        errorMessage = nil
         
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
@@ -45,22 +43,24 @@ class ConversationListViewModel: ObservableObject {
         }
     }
     
-    func createNewConversation(title: String = "New Conversation", profileId: String? = nil) -> String? {
-        let conversation = databaseManager.createConversation(title: title, profileId: profileId)
+    func createNewConversation() {
+        // Get selected profile
+        let profileId = profileManager.selectedProfileId
         
-        // Add to the list
+        // Create a new conversation
+        let conversation = databaseManager.createConversation(title: "New Conversation", profileId: profileId)
+        
+        // Add to list
         DispatchQueue.main.async {
             self.conversations.insert(conversation, at: 0)
         }
-        
-        return conversation.id
     }
     
     func deleteConversation(id: String) {
         do {
             try databaseManager.deleteConversation(id: id)
             
-            // Remove from the list
+            // Remove from list
             DispatchQueue.main.async {
                 self.conversations.removeAll { $0.id == id }
             }
@@ -73,9 +73,9 @@ class ConversationListViewModel: ObservableObject {
         do {
             try databaseManager.updateConversationTitle(id: id, title: title)
             
-            // Update in the list
-            DispatchQueue.main.async {
-                if let index = self.conversations.firstIndex(where: { $0.id == id }) {
+            // Update in list
+            if let index = conversations.firstIndex(where: { $0.id == id }) {
+                DispatchQueue.main.async {
                     self.conversations[index].title = title
                 }
             }
@@ -88,9 +88,9 @@ class ConversationListViewModel: ObservableObject {
         do {
             try databaseManager.updateConversationProfile(id: id, profileId: profileId)
             
-            // Update in the list
-            DispatchQueue.main.async {
-                if let index = self.conversations.firstIndex(where: { $0.id == id }) {
+            // Update in list
+            if let index = conversations.firstIndex(where: { $0.id == id }) {
+                DispatchQueue.main.async {
                     self.conversations[index].profileId = profileId
                 }
             }
@@ -99,18 +99,13 @@ class ConversationListViewModel: ObservableObject {
         }
     }
     
-    func exportConversation(id: String, format: ExportFormat) -> URL? {
-        return exporter.exportConversation(id: id, format: format)
-    }
-    
-    private func performSearch(query: String) {
-        if query.isEmpty {
+    func searchConversations(query: String) {
+        guard !query.isEmpty else {
             loadConversations()
             return
         }
         
         isLoading = true
-        errorMessage = nil
         
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
@@ -121,6 +116,21 @@ class ConversationListViewModel: ObservableObject {
                 self.conversations = results
                 self.isLoading = false
             }
+        }
+    }
+    
+    func exportConversation(id: String, to url: URL) {
+        guard let conversation = databaseManager.getConversation(id: id) else {
+            errorMessage = "Conversation not found"
+            return
+        }
+        
+        let exporter = ConversationExporter(databaseManager: databaseManager)
+        
+        do {
+            try exporter.exportConversation(conversation, to: url)
+        } catch {
+            errorMessage = "Failed to export conversation: \(error.localizedDescription)"
         }
     }
 }

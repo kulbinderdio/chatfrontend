@@ -1,7 +1,8 @@
 import Foundation
 import KeychainAccess
+import Combine
 
-class KeychainManager {
+class KeychainManager: ObservableObject {
     private let keychain: Keychain
     
     // Keys

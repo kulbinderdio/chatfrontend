@@ -389,4 +389,23 @@ class ModelConfigurationManager: ObservableObject {
             parameters: getCurrentParameters()
         )
     }
+    
+    func updateConfiguration(endpoint: URL, apiKey: String, modelName: String, parameters: ModelParameters) {
+        self.apiEndpoint = endpoint.absoluteString
+        self.apiKey = apiKey
+        self.selectedModel = modelName
+        self.temperature = parameters.temperature
+        self.maxTokens = parameters.maxTokens
+        self.topP = parameters.topP
+        self.frequencyPenalty = parameters.frequencyPenalty
+        self.presencePenalty = parameters.presencePenalty
+        
+        // Update API client
+        openAIClient?.updateConfiguration(
+            apiEndpoint: endpoint.absoluteString,
+            apiKey: apiKey,
+            modelName: modelName,
+            parameters: parameters
+        )
+    }
 }

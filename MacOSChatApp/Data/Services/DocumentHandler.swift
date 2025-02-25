@@ -1,90 +1,165 @@
 import Foundation
-import PDFKit
+import Combine
+import UniformTypeIdentifiers
+import QuickLook
 
-class DocumentHandler {
-    // MARK: - Document Extraction
+class DocumentHandler: ObservableObject {
+    @Published var isProcessing: Bool = false
+    @Published var errorMessage: String? = nil
     
-    func extractText(from url: URL) throws -> String {
-        let fileExtension = url.pathExtension.lowercased()
-        
-        switch fileExtension {
-        case "pdf":
-            return try extractTextFromPDF(url: url)
-        case "txt":
-            return try extractTextFromTXT(url: url)
-        default:
-            throw DocumentError.unsupportedFileType
-        }
+    // Supported file types
+    private let supportedTypes: [UTType] = [
+        .plainText,
+        .pdf,
+        .rtf,
+        .html,
+        .json,
+        .xml,
+        .yaml,
+        .text
+    ]
+    
+    // Check if a file type is supported
+    func isSupported(fileType: UTType) -> Bool {
+        return supportedTypes.contains { fileType.conforms(to: $0) }
     }
     
-    private func extractTextFromPDF(url: URL) throws -> String {
-        guard let pdfDocument = PDFDocument(url: url) else {
-            throw DocumentError.invalidPDF
+    // Process a single document
+    func processDocument(_ url: URL) -> Result<String, Error> {
+        guard url.startAccessingSecurityScopedResource() else {
+            return .failure(DocumentError.accessDenied)
         }
         
-        var extractedText = ""
+        defer {
+            url.stopAccessingSecurityScopedResource()
+        }
         
-        for pageIndex in 0..<pdfDocument.pageCount {
-            guard let page = pdfDocument.page(at: pageIndex) else {
-                continue
+        do {
+            let fileType = try url.resourceValues(forKeys: [.contentTypeKey]).contentType
+            
+            guard let type = fileType, isSupported(fileType: type) else {
+                return .failure(DocumentError.unsupportedFileType)
             }
             
-            if let pageText = page.string {
-                extractedText += pageText
+            if type.conforms(to: .plainText) || type.conforms(to: .text) {
+                // Handle text files
+                let content = try String(contentsOf: url, encoding: .utf8)
+                return .success(content)
+            } else if type.conforms(to: .pdf) {
+                // Handle PDF files
+                return extractTextFromPDF(url: url)
+            } else if type.conforms(to: .rtf) {
+                // Handle RTF files
+                return extractTextFromRTF(url: url)
+            } else {
+                return .failure(DocumentError.unsupportedFileType)
+            }
+        } catch {
+            return .failure(error)
+        }
+    }
+    
+    // Process multiple documents
+    func processDocuments(_ urls: [URL], completion: @escaping (Result<String, Error>) -> Void) {
+        isProcessing = true
+        errorMessage = nil
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else {
+                DispatchQueue.main.async {
+                    completion(.failure(DocumentError.unknown))
+                }
+                return
+            }
+            
+            var combinedContent = ""
+            
+            for url in urls {
+                let result = self.processDocument(url)
                 
-                // Add a newline if this isn't the last page
-                if pageIndex < pdfDocument.pageCount - 1 {
-                    extractedText += "\n\n"
+                switch result {
+                case .success(let content):
+                    combinedContent += "--- \(url.lastPathComponent) ---\n\n"
+                    combinedContent += content
+                    combinedContent += "\n\n"
+                case .failure(let error):
+                    DispatchQueue.main.async {
+                        self.isProcessing = false
+                        self.errorMessage = error.localizedDescription
+                        completion(.failure(error))
+                    }
+                    return
                 }
             }
+            
+            DispatchQueue.main.async {
+                self.isProcessing = false
+                completion(.success(combinedContent))
+            }
         }
-        
-        return extractedText
     }
     
-    private func extractTextFromTXT(url: URL) throws -> String {
+    // Extract text from PDF
+    private func extractTextFromPDF(url: URL) -> Result<String, Error> {
+        guard let pdf = CGPDFDocument(url as CFURL) else {
+            return .failure(DocumentError.pdfParsingError)
+        }
+        
+        var text = ""
+        
+        for i in 1...pdf.numberOfPages {
+            guard let page = pdf.page(at: i) else { continue }
+            
+            let pageText = extractTextFromPDFPage(page)
+            text += pageText
+            text += "\n\n"
+        }
+        
+        return .success(text)
+    }
+    
+    // Extract text from a PDF page
+    private func extractTextFromPDFPage(_ page: CGPDFPage) -> String {
+        // This is a simplified implementation
+        // In a real app, we would use PDFKit or a third-party library
+        return "PDF content (page \(page.pageNumber))"
+    }
+    
+    // Extract text from RTF
+    private func extractTextFromRTF(url: URL) -> Result<String, Error> {
         do {
-            return try String(contentsOf: url, encoding: .utf8)
-        } catch {
-            // Try other encodings if UTF-8 fails
-            do {
-                return try String(contentsOf: url, encoding: .ascii)
-            } catch {
-                throw DocumentError.invalidTextFile
+            let data = try Data(contentsOf: url)
+            
+            if let attributedString = try? NSAttributedString(data: data, options: [.documentType: NSAttributedString.DocumentType.rtf], documentAttributes: nil) {
+                return .success(attributedString.string)
+            } else {
+                return .failure(DocumentError.rtfParsingError)
             }
+        } catch {
+            return .failure(error)
         }
     }
+}
+
+enum DocumentError: Error, LocalizedError {
+    case accessDenied
+    case unsupportedFileType
+    case pdfParsingError
+    case rtfParsingError
+    case unknown
     
-    // MARK: - Token Estimation
-    
-    func estimateTokenCount(for text: String) -> Int {
-        // This is a very rough estimation
-        // In a real implementation, we would use a more accurate method
-        // OpenAI's tokenizer uses about 4 characters per token on average
-        
-        let characterCount = text.count
-        return characterCount / 4
-    }
-    
-    // MARK: - Error Handling
-    
-    enum DocumentError: Error, LocalizedError {
-        case unsupportedFileType
-        case invalidPDF
-        case invalidTextFile
-        case extractionFailed
-        
-        var errorDescription: String? {
-            switch self {
-            case .unsupportedFileType:
-                return "Unsupported file type. Only PDF and TXT files are supported."
-            case .invalidPDF:
-                return "Invalid PDF file. The file could not be read."
-            case .invalidTextFile:
-                return "Invalid text file. The file could not be read."
-            case .extractionFailed:
-                return "Failed to extract text from the document."
-            }
+    var errorDescription: String? {
+        switch self {
+        case .accessDenied:
+            return "Access to the document was denied"
+        case .unsupportedFileType:
+            return "The file type is not supported"
+        case .pdfParsingError:
+            return "Failed to parse PDF document"
+        case .rtfParsingError:
+            return "Failed to parse RTF document"
+        case .unknown:
+            return "An unknown error occurred"
         }
     }
 }

@@ -1,91 +1,81 @@
 import XCTest
+import SwiftUI
 @testable import MacOSChatApp
 
 class SettingsViewTests: XCTestCase {
+    var modelConfigManager: ModelConfigurationManager!
+    var keychainManager: KeychainManager!
+    var userDefaultsManager: UserDefaultsManager!
+    var databaseManager: DatabaseManager!
+    var profileManager: ProfileManager!
+    var viewModel: SettingsViewModel!
     
-    func testSettingsViewHasFiveTabs() throws {
-        // Given
-        let keychainManager = KeychainManager()
-        let userDefaultsManager = UserDefaultsManager()
-        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
+    override func setUp() {
+        super.setUp()
         
-        // Create a mock database manager that doesn't throw
-        let databaseManager: DatabaseManager
+        // Create mock dependencies
+        keychainManager = KeychainManager()
+        userDefaultsManager = UserDefaultsManager()
+        
+        modelConfigManager = ModelConfigurationManager(
+            keychainManager: keychainManager,
+            userDefaultsManager: userDefaultsManager
+        )
+        
         do {
             databaseManager = try DatabaseManager()
         } catch {
-            fatalError("Failed to initialize DatabaseManager for test: \(error.localizedDescription)")
+            XCTFail("Failed to initialize DatabaseManager: \(error.localizedDescription)")
+            return
         }
         
-        let viewModel = SettingsViewModel(
+        profileManager = ProfileManager(
+            databaseManager: databaseManager,
+            keychainManager: keychainManager
+        )
+        
+        viewModel = SettingsViewModel(
             modelConfigManager: modelConfigManager,
             keychainManager: keychainManager,
             userDefaultsManager: userDefaultsManager,
-            databaseManager: databaseManager
+            databaseManager: databaseManager,
+            profileManager: profileManager
+        )
+    }
+    
+    override func tearDown() {
+        modelConfigManager = nil
+        keychainManager = nil
+        userDefaultsManager = nil
+        databaseManager = nil
+        profileManager = nil
+        viewModel = nil
+        
+        super.tearDown()
+    }
+    
+    func testSettingsViewInitialization() {
+        // Test that the view initializes correctly
+        let view = SettingsView(
+            viewModel: viewModel,
+            profileManager: profileManager
         )
         
-        // When
-        let view = SettingsView(viewModel: viewModel)
-        
-        // Then
-        // Note: In a real implementation, we would use ViewInspector to test the view
-        // But for now, we'll just check that the view can be created without errors
         XCTAssertNotNil(view)
     }
     
-    func testAPIConfigViewSavesSettings() throws {
-        // Given
-        let keychainManager = KeychainManager()
-        let userDefaultsManager = UserDefaultsManager()
-        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
-        
-        // Create a mock database manager that doesn't throw
-        let databaseManager: DatabaseManager
-        do {
-            databaseManager = try DatabaseManager()
-        } catch {
-            fatalError("Failed to initialize DatabaseManager for test: \(error.localizedDescription)")
-        }
-        
-        let viewModel = SettingsViewModel(
-            modelConfigManager: modelConfigManager,
-            keychainManager: keychainManager,
-            userDefaultsManager: userDefaultsManager,
-            databaseManager: databaseManager
-        )
-        let view = APIConfigView(viewModel: viewModel)
-        
-        // Then
-        // Note: In a real implementation, we would use ViewInspector to test the view
-        // But for now, we'll just check that the view can be created without errors
-        XCTAssertNotNil(view)
+    func testSettingsViewModelInitialization() {
+        // Test that the view model initializes correctly
+        XCTAssertNotNil(viewModel)
     }
     
-    func testModelSettingsViewUpdatesParameters() throws {
-        // Given
-        let keychainManager = KeychainManager()
-        let userDefaultsManager = UserDefaultsManager()
-        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
-        
-        // Create a mock database manager that doesn't throw
-        let databaseManager: DatabaseManager
-        do {
-            databaseManager = try DatabaseManager()
-        } catch {
-            fatalError("Failed to initialize DatabaseManager for test: \(error.localizedDescription)")
-        }
-        
-        let viewModel = SettingsViewModel(
-            modelConfigManager: modelConfigManager,
-            keychainManager: keychainManager,
-            userDefaultsManager: userDefaultsManager,
-            databaseManager: databaseManager
+    func testGeneralSettingsView() {
+        // Test the general settings view
+        let view = SettingsView(
+            viewModel: viewModel,
+            profileManager: profileManager
         )
-        let view = ModelSettingsView(viewModel: viewModel)
         
-        // Then
-        // Note: In a real implementation, we would use ViewInspector to test the view
-        // But for now, we'll just check that the view can be created without errors
         XCTAssertNotNil(view)
     }
 }

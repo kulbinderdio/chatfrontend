@@ -1,15 +1,20 @@
 import SwiftUI
 
 struct ProfilesView: View {
-    @ObservedObject var viewModel: SettingsViewModel
+    @ObservedObject var profileManager: ProfileManager
     @State private var isAddingProfile = false
     @State private var isEditingProfile = false
     @State private var selectedProfileId: String? = nil
+    @State private var isImportingProfiles = false
+    @State private var isExportingProfiles = false
+    @State private var showingAlert = false
+    @State private var alertTitle = ""
+    @State private var alertMessage = ""
     
     var body: some View {
         VStack {
             List(selection: $selectedProfileId) {
-                ForEach(viewModel.profiles, id: \.id) { profile in
+                ForEach(profileManager.profiles, id: \.id) { profile in
                     HStack {
                         VStack(alignment: .leading) {
                             Text(profile.name)
@@ -28,6 +33,14 @@ struct ProfilesView: View {
                                 .background(Color.blue.opacity(0.2))
                                 .cornerRadius(4)
                         }
+                        
+                        if profile.id == profileManager.selectedProfileId {
+                            Text("Selected")
+                                .font(.caption)
+                                .padding(4)
+                                .background(Color.green.opacity(0.2))
+                                .cornerRadius(4)
+                        }
                     }
                     .tag(profile.id)
                     .contextMenu {
@@ -36,18 +49,31 @@ struct ProfilesView: View {
                             isEditingProfile = true
                         }
                         
+                        Button("Duplicate") {
+                            duplicateProfile(id: profile.id)
+                        }
+                        
                         Button("Set as Default") {
-                            viewModel.setDefaultProfile(id: profile.id)
+                            setDefaultProfile(id: profile.id)
                         }
                         .disabled(profile.isDefault)
                         
-                        Button("Delete") {
-                            viewModel.deleteProfile(id: profile.id)
+                        Button("Select") {
+                            profileManager.selectProfile(id: profile.id)
                         }
-                        .disabled(profile.isDefault)
+                        .disabled(profile.id == profileManager.selectedProfileId)
+                        
+                        Divider()
+                        
+                        Button("Delete") {
+                            deleteProfile(id: profile.id)
+                        }
+                        .disabled(profile.isDefault || profileManager.profiles.count <= 1 || profile.id == profileManager.selectedProfileId)
                     }
                 }
             }
+            .listStyle(SidebarListStyle())
+            .frame(minWidth: 200)
             
             HStack {
                 Button("Add Profile") {
@@ -56,28 +82,127 @@ struct ProfilesView: View {
                 
                 Spacer()
                 
-                Button("Edit") {
-                    isEditingProfile = true
+                Button("Import") {
+                    isImportingProfiles = true
                 }
-                .disabled(selectedProfileId == nil)
+                
+                Button("Export") {
+                    exportProfiles()
+                }
+                
+                Divider()
+                
+                Button("Select") {
+                    if let id = selectedProfileId {
+                        profileManager.selectProfile(id: id)
+                    }
+                }
+                .disabled(selectedProfileId == nil || selectedProfileId == profileManager.selectedProfileId)
+                
+                Button("Set as Default") {
+                    if let id = selectedProfileId {
+                        setDefaultProfile(id: id)
+                    }
+                }
+                .disabled(selectedProfileId == nil || profileManager.profiles.first(where: { $0.id == selectedProfileId })?.isDefault == true)
                 
                 Button("Delete") {
                     if let id = selectedProfileId {
-                        viewModel.deleteProfile(id: id)
+                        deleteProfile(id: id)
                     }
                 }
-                .disabled(selectedProfileId == nil || viewModel.profiles.first(where: { $0.id == selectedProfileId })?.isDefault == true)
+                .disabled(selectedProfileId == nil || profileManager.profiles.count <= 1 || selectedProfileId == profileManager.selectedProfileId || profileManager.profiles.first(where: { $0.id == selectedProfileId })?.isDefault == true)
             }
             .padding(.top)
         }
         .sheet(isPresented: $isAddingProfile) {
-            ProfileEditorView(viewModel: viewModel, mode: .add)
+            ProfileEditorView(profileManager: profileManager, mode: .add)
         }
         .sheet(isPresented: $isEditingProfile) {
-            if let id = selectedProfileId, let profile = viewModel.profiles.first(where: { $0.id == id }) {
-                ProfileEditorView(viewModel: viewModel, mode: .edit(profile: profile))
+            if let id = selectedProfileId, let profile = profileManager.profiles.first(where: { $0.id == id }) {
+                ProfileEditorView(profileManager: profileManager, mode: .edit(profile: profile))
             }
         }
+        .fileImporter(
+            isPresented: $isImportingProfiles,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    profileManager.importProfiles(from: url)
+                }
+            case .failure(let error):
+                showAlert(title: "Import Failed", message: error.localizedDescription)
+            }
+        }
+        .alert(isPresented: $showingAlert) {
+            Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
+        }
+        .onChange(of: profileManager.errorMessage) { newValue in
+            if let errorMessage = newValue {
+                showAlert(title: "Error", message: errorMessage)
+                profileManager.errorMessage = nil
+            }
+        }
+    }
+    
+    private func setDefaultProfile(id: String) {
+        do {
+            try profileManager.setDefaultProfile(id: id)
+        } catch {
+            showAlert(title: "Error", message: "Failed to set default profile: \(error.localizedDescription)")
+        }
+    }
+    
+    private func deleteProfile(id: String) {
+        do {
+            try profileManager.deleteProfile(id: id)
+        } catch ProfileError.cannotDeleteLastProfile {
+            showAlert(title: "Cannot Delete", message: "You cannot delete the last profile.")
+        } catch ProfileError.cannotDeleteSelectedProfile {
+            showAlert(title: "Cannot Delete", message: "You cannot delete the currently selected profile.")
+        } catch {
+            showAlert(title: "Error", message: "Failed to delete profile: \(error.localizedDescription)")
+        }
+    }
+    
+    private func duplicateProfile(id: String) {
+        do {
+            _ = try profileManager.duplicateProfile(id: id)
+        } catch {
+            showAlert(title: "Error", message: "Failed to duplicate profile: \(error.localizedDescription)")
+        }
+    }
+    
+    private func exportProfiles() {
+        if let fileURL = profileManager.exportProfiles() {
+            isExportingProfiles = true
+            
+            // Use NSSavePanel to let user choose where to save the file
+            let savePanel = NSSavePanel()
+            savePanel.nameFieldStringValue = "MacOSChatApp_Profiles.json"
+            savePanel.allowedContentTypes = [.json]
+            
+            savePanel.begin { response in
+                if response == .OK, let targetURL = savePanel.url {
+                    do {
+                        let data = try Data(contentsOf: fileURL)
+                        try data.write(to: targetURL)
+                    } catch {
+                        showAlert(title: "Export Failed", message: error.localizedDescription)
+                    }
+                }
+                isExportingProfiles = false
+            }
+        }
+    }
+    
+    private func showAlert(title: String, message: String) {
+        alertTitle = title
+        alertMessage = message
+        showingAlert = true
     }
 }
 
@@ -87,7 +212,7 @@ enum ProfileEditorMode {
 }
 
 struct ProfileEditorView: View {
-    @ObservedObject var viewModel: SettingsViewModel
+    @ObservedObject var profileManager: ProfileManager
     let mode: ProfileEditorMode
     
     @State private var name: String = ""
@@ -96,10 +221,14 @@ struct ProfileEditorView: View {
     @State private var modelName: String = ""
     @State private var temperature: Double = 0.7
     @State private var maxTokens: Int = 2048
-    @State private var maxTokensDouble: Double = 2048.0
     @State private var topP: Double = 1.0
     @State private var frequencyPenalty: Double = 0.0
     @State private var presencePenalty: Double = 0.0
+    @State private var isDefault: Bool = false
+    
+    @State private var isTestingConnection: Bool = false
+    @State private var connectionTestResult: String? = nil
+    @State private var connectionTestSuccess: Bool = false
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -118,6 +247,8 @@ struct ProfileEditorView: View {
                     
                     TextField("Model Name", text: $modelName)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
+                    
+                    Toggle("Set as Default Profile", isOn: $isDefault)
                 }
                 
                 Section(header: Text("Model Parameters")) {
@@ -128,10 +259,10 @@ struct ProfileEditorView: View {
                     
                     VStack(alignment: .leading) {
                         Text("Max Tokens: \(maxTokens)")
-                        Slider(value: $maxTokensDouble, in: 256.0...4096.0, step: 256.0)
-                            .onChange(of: maxTokensDouble) { newValue in
-                                maxTokens = Int(newValue)
-                            }
+                        Slider(value: Binding<Double>(
+                            get: { Double(maxTokens) },
+                            set: { maxTokens = Int($0) }
+                        ), in: 256...4096, step: 256)
                     }
                     
                     VStack(alignment: .leading) {
@@ -149,6 +280,16 @@ struct ProfileEditorView: View {
                         Slider(value: $presencePenalty, in: 0...2, step: 0.1)
                     }
                 }
+                
+                if let result = connectionTestResult {
+                    Section(header: Text("Connection Test")) {
+                        HStack {
+                            Image(systemName: connectionTestSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(connectionTestSuccess ? .green : .red)
+                            Text(result)
+                        }
+                    }
+                }
             }
             
             HStack {
@@ -159,46 +300,16 @@ struct ProfileEditorView: View {
                 Spacer()
                 
                 Button("Test Connection") {
-                    viewModel.testConnection(endpoint: apiEndpoint, key: apiKey, model: modelName)
+                    testConnection()
                 }
+                .disabled(apiEndpoint.isEmpty || apiKey.isEmpty || modelName.isEmpty || isTestingConnection)
                 
-                Button {
-                    let parameters = ModelParameters(
-                        temperature: temperature,
-                        maxTokens: maxTokens,
-                        topP: topP,
-                        frequencyPenalty: frequencyPenalty,
-                        presencePenalty: presencePenalty
-                    )
-                    
-                    if case .add = mode {
-                        viewModel.addProfile(
-                            name: name,
-                            apiEndpoint: apiEndpoint,
-                            apiKey: apiKey,
-                            modelName: modelName,
-                            parameters: parameters
-                        )
-                    } else if case .edit(let profile) = mode {
-                        viewModel.updateProfile(
-                            id: profile.id,
-                            name: name,
-                            apiEndpoint: apiEndpoint,
-                            apiKey: apiKey,
-                            modelName: modelName,
-                            parameters: parameters
-                        )
-                    }
-                    
-                    presentationMode.wrappedValue.dismiss()
-                } label: {
-                    if case .add = mode {
-                        Text("Add")
-                    } else {
-                        Text("Save")
-                    }
+                Button(action: {
+                    saveProfile()
+                }) {
+                    Text(modeIsAdd ? "Add" : "Save")
                 }
-                .disabled(name.isEmpty || apiEndpoint.isEmpty || apiKey.isEmpty || modelName.isEmpty)
+                .disabled(name.isEmpty || apiEndpoint.isEmpty || modelName.isEmpty)
             }
             .padding()
         }
@@ -208,15 +319,96 @@ struct ProfileEditorView: View {
             if case .edit(let profile) = mode {
                 name = profile.name
                 apiEndpoint = profile.apiEndpoint
-                apiKey = viewModel.getAPIKey(for: profile.id) ?? ""
+                apiKey = profileManager.getAPIKey(for: profile.id) ?? ""
                 modelName = profile.modelName
                 temperature = profile.parameters.temperature
                 maxTokens = profile.parameters.maxTokens
-                maxTokensDouble = Double(maxTokens)
                 topP = profile.parameters.topP
                 frequencyPenalty = profile.parameters.frequencyPenalty
                 presencePenalty = profile.parameters.presencePenalty
+                isDefault = profile.isDefault
             }
+        }
+    }
+    
+    private var modeIsAdd: Bool {
+        if case .add = mode {
+            return true
+        }
+        return false
+    }
+    
+    private func testConnection() {
+        guard !apiEndpoint.isEmpty, !apiKey.isEmpty, !modelName.isEmpty else {
+            return
+        }
+        
+        isTestingConnection = true
+        connectionTestResult = "Testing connection..."
+        
+        profileManager.testConnection(endpoint: apiEndpoint, key: apiKey, model: modelName) { result in
+            DispatchQueue.main.async {
+                isTestingConnection = false
+                
+                switch result {
+                case .success:
+                    connectionTestResult = "Connection successful!"
+                    connectionTestSuccess = true
+                case .failure(let error):
+                    connectionTestResult = "Connection failed: \(error.localizedDescription)"
+                    connectionTestSuccess = false
+                }
+            }
+        }
+    }
+    
+    private func saveProfile() {
+        let parameters = ModelParameters(
+            temperature: temperature,
+            maxTokens: maxTokens,
+            topP: topP,
+            frequencyPenalty: frequencyPenalty,
+            presencePenalty: presencePenalty
+        )
+        
+        do {
+            if case .add = mode {
+                guard let url = URL(string: apiEndpoint) else {
+                    connectionTestResult = "Invalid API endpoint URL"
+                    connectionTestSuccess = false
+                    return
+                }
+                
+                _ = try profileManager.createProfile(
+                    name: name,
+                    apiEndpoint: url,
+                    apiKey: apiKey,
+                    modelName: modelName,
+                    parameters: parameters,
+                    isDefault: isDefault
+                )
+            } else if case .edit(let profile) = mode {
+                guard let url = URL(string: apiEndpoint) else {
+                    connectionTestResult = "Invalid API endpoint URL"
+                    connectionTestSuccess = false
+                    return
+                }
+                
+                try profileManager.updateProfile(
+                    id: profile.id,
+                    name: name,
+                    apiEndpoint: url,
+                    apiKey: apiKey,
+                    modelName: modelName,
+                    parameters: parameters,
+                    isDefault: isDefault
+                )
+            }
+            
+            presentationMode.wrappedValue.dismiss()
+        } catch {
+            connectionTestResult = "Error saving profile: \(error.localizedDescription)"
+            connectionTestSuccess = false
         }
     }
 }
@@ -225,8 +417,6 @@ struct ProfileEditorView: View {
 struct ProfilesView_Previews: PreviewProvider {
     static var previews: some View {
         let keychainManager = KeychainManager()
-        let userDefaultsManager = UserDefaultsManager()
-        let modelConfigManager = ModelConfigurationManager(keychainManager: keychainManager, userDefaultsManager: userDefaultsManager)
         
         // Create a mock database manager that doesn't throw
         let databaseManager: DatabaseManager
@@ -236,13 +426,8 @@ struct ProfilesView_Previews: PreviewProvider {
             fatalError("Failed to initialize DatabaseManager for preview: \(error.localizedDescription)")
         }
         
-        let viewModel = SettingsViewModel(
-            modelConfigManager: modelConfigManager,
-            keychainManager: keychainManager,
-            userDefaultsManager: userDefaultsManager,
-            databaseManager: databaseManager
-        )
+        let profileManager = ProfileManager(databaseManager: databaseManager, keychainManager: keychainManager)
         
-        return ProfilesView(viewModel: viewModel)
+        return ProfilesView(profileManager: profileManager)
     }
 }

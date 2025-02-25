@@ -33,9 +33,6 @@ class SettingsViewModel: ObservableObject {
     @Published var launchAtLogin: Bool = false
     @Published var showInDock: Bool = true
     
-    // Profiles
-    @Published var profiles: [ModelProfile] = []
-    
     // Status
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
@@ -44,14 +41,16 @@ class SettingsViewModel: ObservableObject {
     private let keychainManager: KeychainManager
     private let userDefaultsManager: UserDefaultsManager
     private let databaseManager: DatabaseManager
+    private let profileManager: ProfileManager
     
     private var cancellables = Set<AnyCancellable>()
     
-    init(modelConfigManager: ModelConfigurationManager, keychainManager: KeychainManager, userDefaultsManager: UserDefaultsManager, databaseManager: DatabaseManager) {
+    init(modelConfigManager: ModelConfigurationManager, keychainManager: KeychainManager, userDefaultsManager: UserDefaultsManager, databaseManager: DatabaseManager, profileManager: ProfileManager) {
         self.modelConfigManager = modelConfigManager
         self.keychainManager = keychainManager
         self.userDefaultsManager = userDefaultsManager
         self.databaseManager = databaseManager
+        self.profileManager = profileManager
         
         // Initialize with values from ModelConfigurationManager
         self.apiEndpoint = modelConfigManager.apiEndpoint
@@ -67,9 +66,6 @@ class SettingsViewModel: ObservableObject {
         
         self.ollamaEnabled = modelConfigManager.ollamaEnabled
         self.ollamaEndpoint = modelConfigManager.ollamaEndpoint
-        
-        // Load profiles
-        loadProfiles()
         
         // Set up publishers to sync with ModelConfigurationManager
         setupPublishers()
@@ -184,139 +180,6 @@ class SettingsViewModel: ObservableObject {
                 self?.isLoading = loading
             }
             .store(in: &cancellables)
-    }
-    
-    // MARK: - Profile Management
-    
-    private func loadProfiles() {
-        profiles = keychainManager.getAllProfiles()
-        
-        // If no profiles exist, create a default one
-        if profiles.isEmpty {
-            let defaultProfile = ModelProfile.defaultProfiles[0]
-            keychainManager.saveProfile(defaultProfile)
-            profiles = [defaultProfile]
-        }
-    }
-    
-    func addProfile(name: String, apiEndpoint: String, apiKey: String, modelName: String, parameters: ModelParameters) {
-        let profile = ModelProfile(
-            name: name,
-            modelName: modelName,
-            apiEndpoint: apiEndpoint,
-            isDefault: profiles.isEmpty,
-            parameters: parameters
-        )
-        
-        // Save API key for this profile
-        keychainManager.saveAPIKey(apiKey, forProfileId: profile.id)
-        
-        // Save profile
-        keychainManager.saveProfile(profile)
-        
-        // Update profiles list
-        profiles.append(profile)
-    }
-    
-    func updateProfile(id: String, name: String, apiEndpoint: String, apiKey: String, modelName: String, parameters: ModelParameters) {
-        if let index = profiles.firstIndex(where: { $0.id == id }) {
-            let isDefault = profiles[index].isDefault
-            
-            let updatedProfile = ModelProfile(
-                id: id,
-                name: name,
-                modelName: modelName,
-                apiEndpoint: apiEndpoint,
-                isDefault: isDefault,
-                parameters: parameters
-            )
-            
-            // Save API key for this profile
-            keychainManager.saveAPIKey(apiKey, forProfileId: id)
-            
-            // Save profile
-            keychainManager.saveProfile(updatedProfile)
-            
-            // Update profiles list
-            profiles[index] = updatedProfile
-            
-            // If this is the default profile, update current settings
-            if isDefault {
-                loadProfile(updatedProfile)
-            }
-        }
-    }
-    
-    func deleteProfile(id: String) {
-        if let index = profiles.firstIndex(where: { $0.id == id }) {
-            // Don't delete the default profile
-            if profiles[index].isDefault {
-                return
-            }
-            
-            // Delete API key for this profile
-            keychainManager.deleteAPIKey(forProfileId: id)
-            
-            // Delete profile
-            keychainManager.deleteProfile(id: id)
-            
-            // Update profiles list
-            profiles.remove(at: index)
-        }
-    }
-    
-    func setDefaultProfile(id: String) {
-        // Update default status in profiles
-        for i in 0..<profiles.count {
-            let wasDefault = profiles[i].isDefault
-            let willBeDefault = profiles[i].id == id
-            
-            if wasDefault != willBeDefault {
-                // Create updated profile with new default status
-                let updatedProfile = ModelProfile(
-                    id: profiles[i].id,
-                    name: profiles[i].name,
-                    modelName: profiles[i].modelName,
-                    apiEndpoint: profiles[i].apiEndpoint,
-                    isDefault: willBeDefault,
-                    parameters: profiles[i].parameters
-                )
-                
-                // Save updated profile
-                keychainManager.saveProfile(updatedProfile)
-                
-                // Update profiles list
-                profiles[i] = updatedProfile
-                
-                // If this is the new default profile, load it
-                if willBeDefault {
-                    loadProfile(updatedProfile)
-                }
-            }
-        }
-        
-        // Save default profile ID
-        userDefaultsManager.saveDefaultProfileId(id)
-    }
-    
-    func loadProfile(_ profile: ModelProfile) {
-        // Load profile settings into ModelConfigurationManager
-        modelConfigManager.loadProfile(profile)
-        
-        // Update local properties
-        apiEndpoint = profile.apiEndpoint
-        apiKey = keychainManager.getAPIKey(for: profile.id) ?? ""
-        selectedModel = profile.modelName
-        
-        temperature = profile.parameters.temperature
-        maxTokens = profile.parameters.maxTokens
-        topP = profile.parameters.topP
-        frequencyPenalty = profile.parameters.frequencyPenalty
-        presencePenalty = profile.parameters.presencePenalty
-    }
-    
-    func getAPIKey(for profileId: String) -> String? {
-        return keychainManager.getAPIKey(for: profileId)
     }
     
     // MARK: - API Configuration

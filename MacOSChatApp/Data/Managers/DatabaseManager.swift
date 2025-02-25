@@ -1,7 +1,8 @@
 import Foundation
 import SQLite
+import Combine
 
-class DatabaseManager {
+class DatabaseManager: ObservableObject {
     private let db: Connection
     
     init() throws {
@@ -26,6 +27,21 @@ class DatabaseManager {
         try DatabaseSchema.createTables(db: db)
         
         print("DatabaseManager initialized")
+    }
+    
+    // For testing purposes
+    convenience init(inMemory: Bool) throws {
+        if inMemory {
+            try self.init(connection: Connection(.inMemory))
+        } else {
+            try self.init()
+        }
+    }
+    
+    // For testing with a specific connection
+    init(connection: Connection) throws {
+        self.db = connection
+        try DatabaseSchema.createTables(db: db)
     }
     
     // MARK: - Conversation Methods
@@ -254,6 +270,219 @@ class DatabaseManager {
         } catch {
             throw DatabaseError.deleteFailed("Failed to delete message: \(error.localizedDescription)")
         }
+    }
+    
+    // MARK: - Profile Methods
+    
+    func saveProfile(_ profile: ModelProfile) throws {
+        // Check if profile already exists
+        let existingProfile = getProfile(id: profile.id)
+        
+        if existingProfile != nil {
+            // Update existing profile
+            try updateProfile(profile)
+        } else {
+            // Insert new profile
+            let insert = DatabaseSchema.profiles.insert(
+                DatabaseSchema.profileId <- profile.id,
+                DatabaseSchema.profileName <- profile.name,
+                DatabaseSchema.profileApiEndpoint <- profile.apiEndpoint,
+                DatabaseSchema.profileModelName <- profile.modelName,
+                DatabaseSchema.profileTemperature <- profile.parameters.temperature,
+                DatabaseSchema.profileMaxTokens <- profile.parameters.maxTokens,
+                DatabaseSchema.profileTopP <- profile.parameters.topP,
+                DatabaseSchema.profileFrequencyPenalty <- profile.parameters.frequencyPenalty,
+                DatabaseSchema.profilePresencePenalty <- profile.parameters.presencePenalty,
+                DatabaseSchema.profileIsDefault <- profile.isDefault
+            )
+            
+            do {
+                try db.run(insert)
+                print("Saved profile: \(profile.name)")
+                
+                // If this is the default profile, update other profiles
+                if profile.isDefault {
+                    try setDefaultProfile(id: profile.id)
+                }
+            } catch {
+                throw DatabaseError.insertFailed("Failed to save profile: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func updateProfile(_ profile: ModelProfile) throws {
+        let profileQuery = DatabaseSchema.profiles.filter(DatabaseSchema.profileId == profile.id)
+        
+        let update = profileQuery.update(
+            DatabaseSchema.profileName <- profile.name,
+            DatabaseSchema.profileApiEndpoint <- profile.apiEndpoint,
+            DatabaseSchema.profileModelName <- profile.modelName,
+            DatabaseSchema.profileTemperature <- profile.parameters.temperature,
+            DatabaseSchema.profileMaxTokens <- profile.parameters.maxTokens,
+            DatabaseSchema.profileTopP <- profile.parameters.topP,
+            DatabaseSchema.profileFrequencyPenalty <- profile.parameters.frequencyPenalty,
+            DatabaseSchema.profilePresencePenalty <- profile.parameters.presencePenalty,
+            DatabaseSchema.profileIsDefault <- profile.isDefault
+        )
+        
+        do {
+            if try db.run(update) > 0 {
+                print("Updated profile: \(profile.name)")
+                
+                // If this is the default profile, update other profiles
+                if profile.isDefault {
+                    try setDefaultProfile(id: profile.id)
+                }
+                
+                return
+            } else {
+                throw DatabaseError.notFound
+            }
+        } catch {
+            throw DatabaseError.updateFailed("Failed to update profile: \(error.localizedDescription)")
+        }
+    }
+    
+    func getProfile(id: String) -> ModelProfile? {
+        let query = DatabaseSchema.profiles.filter(DatabaseSchema.profileId == id)
+        
+        do {
+            if let row = try db.pluck(query) {
+                let parameters = ModelParameters(
+                    temperature: row[DatabaseSchema.profileTemperature],
+                    maxTokens: row[DatabaseSchema.profileMaxTokens],
+                    topP: row[DatabaseSchema.profileTopP],
+                    frequencyPenalty: row[DatabaseSchema.profileFrequencyPenalty],
+                    presencePenalty: row[DatabaseSchema.profilePresencePenalty]
+                )
+                
+                let profile = ModelProfile(
+                    id: row[DatabaseSchema.profileId],
+                    name: row[DatabaseSchema.profileName],
+                    modelName: row[DatabaseSchema.profileModelName],
+                    apiEndpoint: row[DatabaseSchema.profileApiEndpoint],
+                    isDefault: row[DatabaseSchema.profileIsDefault],
+                    parameters: parameters
+                )
+                
+                return profile
+            }
+        } catch {
+            print("Error getting profile: \(error.localizedDescription)")
+        }
+        
+        return nil
+    }
+    
+    func getAllProfiles() -> [ModelProfile] {
+        let query = DatabaseSchema.profiles.order(DatabaseSchema.profileName.asc)
+        
+        var profiles: [ModelProfile] = []
+        
+        do {
+            print("Fetching all profiles")
+            
+            for row in try db.prepare(query) {
+                let parameters = ModelParameters(
+                    temperature: row[DatabaseSchema.profileTemperature],
+                    maxTokens: row[DatabaseSchema.profileMaxTokens],
+                    topP: row[DatabaseSchema.profileTopP],
+                    frequencyPenalty: row[DatabaseSchema.profileFrequencyPenalty],
+                    presencePenalty: row[DatabaseSchema.profilePresencePenalty]
+                )
+                
+                let profile = ModelProfile(
+                    id: row[DatabaseSchema.profileId],
+                    name: row[DatabaseSchema.profileName],
+                    modelName: row[DatabaseSchema.profileModelName],
+                    apiEndpoint: row[DatabaseSchema.profileApiEndpoint],
+                    isDefault: row[DatabaseSchema.profileIsDefault],
+                    parameters: parameters
+                )
+                
+                profiles.append(profile)
+            }
+        } catch {
+            print("Error getting all profiles: \(error.localizedDescription)")
+        }
+        
+        return profiles
+    }
+    
+    func deleteProfile(id: String) throws {
+        // Check if this is the default profile
+        let profile = getProfile(id: id)
+        
+        if profile?.isDefault == true {
+            throw DatabaseError.deleteFailed("Cannot delete the default profile")
+        }
+        
+        // Delete the profile
+        let profileQuery = DatabaseSchema.profiles.filter(DatabaseSchema.profileId == id)
+        
+        do {
+            if try db.run(profileQuery.delete()) > 0 {
+                print("Deleted profile: \(id)")
+                return
+            } else {
+                throw DatabaseError.notFound
+            }
+        } catch {
+            throw DatabaseError.deleteFailed("Failed to delete profile: \(error.localizedDescription)")
+        }
+    }
+    
+    func setDefaultProfile(id: String) throws {
+        // First, set all profiles to non-default
+        let update = DatabaseSchema.profiles.update(DatabaseSchema.profileIsDefault <- false)
+        
+        do {
+            try db.run(update)
+            
+            // Then, set the specified profile to default
+            let profileQuery = DatabaseSchema.profiles.filter(DatabaseSchema.profileId == id)
+            let defaultUpdate = profileQuery.update(DatabaseSchema.profileIsDefault <- true)
+            
+            if try db.run(defaultUpdate) > 0 {
+                print("Set default profile: \(id)")
+                return
+            } else {
+                throw DatabaseError.notFound
+            }
+        } catch {
+            throw DatabaseError.updateFailed("Failed to set default profile: \(error.localizedDescription)")
+        }
+    }
+    
+    func getDefaultProfile() -> ModelProfile? {
+        let query = DatabaseSchema.profiles.filter(DatabaseSchema.profileIsDefault == true)
+        
+        do {
+            if let row = try db.pluck(query) {
+                let parameters = ModelParameters(
+                    temperature: row[DatabaseSchema.profileTemperature],
+                    maxTokens: row[DatabaseSchema.profileMaxTokens],
+                    topP: row[DatabaseSchema.profileTopP],
+                    frequencyPenalty: row[DatabaseSchema.profileFrequencyPenalty],
+                    presencePenalty: row[DatabaseSchema.profilePresencePenalty]
+                )
+                
+                let profile = ModelProfile(
+                    id: row[DatabaseSchema.profileId],
+                    name: row[DatabaseSchema.profileName],
+                    modelName: row[DatabaseSchema.profileModelName],
+                    apiEndpoint: row[DatabaseSchema.profileApiEndpoint],
+                    isDefault: true,
+                    parameters: parameters
+                )
+                
+                return profile
+            }
+        } catch {
+            print("Error getting default profile: \(error.localizedDescription)")
+        }
+        
+        return nil
     }
     
     // MARK: - Search Methods
