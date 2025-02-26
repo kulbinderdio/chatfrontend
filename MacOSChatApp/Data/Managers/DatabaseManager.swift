@@ -500,19 +500,17 @@ class DatabaseManager: ObservableObject {
     // MARK: - Search Methods
     
     func searchConversations(query: String) -> [Conversation] {
+        // If query is empty, return all conversations
+        if query.isEmpty {
+            return getAllConversations()
+        }
+        
         // Create a pattern for SQLite's LIKE operator
         let pattern = "%\(query)%"
         
-        // Search in conversation titles and message content
+        // Search in conversation titles only for now to avoid join issues
         let titleMatches = DatabaseSchema.conversations
             .filter(DatabaseSchema.conversationTitle.like(pattern))
-        
-        let contentMatches = DatabaseSchema.conversations
-            .join(DatabaseSchema.messages, on: DatabaseSchema.conversationId == DatabaseSchema.messageConversationId)
-            .filter(DatabaseSchema.messageContent.like(pattern))
-            .select(distinct: DatabaseSchema.conversationId, DatabaseSchema.conversationTitle, 
-                    DatabaseSchema.conversationCreatedAt, DatabaseSchema.conversationUpdatedAt, 
-                    DatabaseSchema.conversationProfileId)
         
         var conversations: [Conversation] = []
         
@@ -532,20 +530,29 @@ class DatabaseManager: ObservableObject {
                 conversations.append(conversation)
             }
             
-            // Get content matches
-            for row in try db.prepare(contentMatches) {
-                let conversation = Conversation(
-                    id: row[DatabaseSchema.conversationId],
-                    title: row[DatabaseSchema.conversationTitle],
-                    messages: [], // Don't load messages here for performance
-                    createdAt: row[DatabaseSchema.conversationCreatedAt],
-                    updatedAt: row[DatabaseSchema.conversationUpdatedAt],
-                    profileId: row[DatabaseSchema.conversationProfileId]
-                )
+            // Search in message content separately to avoid join issues
+            let messageMatches = DatabaseSchema.messages
+                .filter(DatabaseSchema.messageContent.like(pattern))
+                .select(distinct: DatabaseSchema.messageConversationId)
+            
+            for row in try db.prepare(messageMatches) {
+                let conversationId = row[DatabaseSchema.messageConversationId]
                 
-                // Only add if not already added from title matches
-                if !conversations.contains(where: { $0.id == conversation.id }) {
-                    conversations.append(conversation)
+                // Only process if not already added from title matches
+                if !conversations.contains(where: { $0.id == conversationId }) {
+                    // Get the conversation details
+                    if let conversation = getConversation(id: conversationId) {
+                        // Create a conversation object without loading all messages
+                        let searchResult = Conversation(
+                            id: conversation.id,
+                            title: conversation.title,
+                            messages: [], // Don't load messages here for performance
+                            createdAt: conversation.createdAt,
+                            updatedAt: conversation.updatedAt,
+                            profileId: conversation.profileId
+                        )
+                        conversations.append(searchResult)
+                    }
                 }
             }
         } catch {

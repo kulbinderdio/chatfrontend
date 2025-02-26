@@ -185,6 +185,12 @@ struct ChatView: View {
                 viewModel.loadOrCreateConversation(id: conversationId)
             }
         }
+        .onChange(of: conversationListViewModel.currentConversationId) { newConversationId in
+            // Load the selected conversation when it changes
+            if let conversationId = newConversationId {
+                viewModel.loadOrCreateConversation(id: conversationId)
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NewChatRequested"))) { _ in
             createNewConversation()
         }

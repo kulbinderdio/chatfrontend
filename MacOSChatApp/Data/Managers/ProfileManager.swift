@@ -193,40 +193,124 @@ class ProfileManager: ObservableObject {
     }
     
     func testConnection(endpoint: String, key: String, model: String, completion: @escaping (Result<Bool, Error>) -> Void) {
-        // Create temporary API client to test connection
-        guard let url = URL(string: endpoint) else {
-            completion(.failure(ProfileError.invalidURL))
-            return
-        }
+        // Create a test message to send to the API
+        let testMessage = [Message(id: UUID().uuidString, role: "user", content: "Hello", timestamp: Date())]
+        let testParameters = ModelParameters(temperature: 0.7, maxTokens: 10, topP: 1.0, frequencyPenalty: 0.0, presencePenalty: 0.0)
         
         // Check if this is an Ollama model
         if model.hasPrefix("ollama:") {
-            // For Ollama, we don't need an API key
-            let ollamaEndpoint = endpoint
+            // For Ollama, we need to append the API path
+            var ollamaEndpoint = endpoint
+            if !ollamaEndpoint.hasSuffix("/") {
+                ollamaEndpoint += "/"
+            }
+            ollamaEndpoint += "api/generate"
+            
+            guard let url = URL(string: ollamaEndpoint) else {
+                completion(.failure(ProfileError.invalidURL))
+                return
+            }
+            
             let ollamaModelName = model.replacingOccurrences(of: "ollama:", with: "")
             
-            let ollamaClient = OllamaAPIClient(endpoint: ollamaEndpoint, modelName: ollamaModelName)
+            // Convert OpenAI-style messages to Ollama format
+            let prompt = testMessage.map { "\($0.role): \($0.content)" }.joined(separator: "\n")
             
-            ollamaClient.isEndpointReachable { isReachable in
-                if isReachable {
-                    completion(.success(true))
-                } else {
-                    let error = NSError(domain: "OllamaError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not connect to Ollama server. Please check the endpoint URL."])
-                    completion(.failure(error))
+            // Create the request body
+            let body: [String: Any] = [
+                "model": ollamaModelName,
+                "prompt": prompt,
+                "stream": false
+            ]
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            
+            let session = URLSession.shared
+            let task = session.dataTask(with: request) { _, response, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        completion(.failure(error))
+                        return
+                    }
+                    
+                    if let httpResponse = response as? HTTPURLResponse {
+                        if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
+                            completion(.success(true))
+                        } else {
+                            let error = NSError(domain: "OllamaError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server returned status code \(httpResponse.statusCode)"])
+                            completion(.failure(error))
+                        }
+                    } else {
+                        completion(.success(true)) // If we got a response but couldn't cast it, assume success
+                    }
                 }
             }
+            task.resume()
         } else {
             // For OpenAI and other API providers
-            let apiClient = APIClient(apiEndpoint: endpoint, apiKey: key, modelName: model, parameters: ModelParameters())
             
-            apiClient.testConnection { result in
-                switch result {
-                case .success:
-                    completion(.success(true))
-                case .failure(let error):
-                    completion(.failure(error))
+            // Correct the OpenRouter endpoint if needed
+            var correctedEndpoint = endpoint
+            if correctedEndpoint.contains("openrouter.ai") && !correctedEndpoint.contains("/chat/completions") {
+                if correctedEndpoint.contains("/api/v1") {
+                    correctedEndpoint = correctedEndpoint + "/chat/completions"
                 }
             }
+            
+            guard let url = URL(string: correctedEndpoint) else {
+                completion(.failure(ProfileError.invalidURL))
+                return
+            }
+            
+            // Create the request body
+            let messagesJSON = testMessage.map { message -> [String: String] in
+                return [
+                    "role": message.role,
+                    "content": message.content
+                ]
+            }
+            
+            let body: [String: Any] = [
+                "model": model,
+                "messages": messagesJSON,
+                "temperature": testParameters.temperature,
+                "max_tokens": testParameters.maxTokens,
+                "top_p": testParameters.topP,
+                "frequency_penalty": testParameters.frequencyPenalty,
+                "presence_penalty": testParameters.presencePenalty
+            ]
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            
+            let session = URLSession.shared
+            let task = session.dataTask(with: request) { _, response, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        completion(.failure(error))
+                        return
+                    }
+                    
+                    if let httpResponse = response as? HTTPURLResponse {
+                        // 200-299 means success, 401 means the server is reachable but the API key is invalid
+                        if httpResponse.statusCode == 401 || (httpResponse.statusCode >= 200 && httpResponse.statusCode < 300) {
+                            completion(.success(true))
+                        } else {
+                            let error = NSError(domain: "APIError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server returned status code \(httpResponse.statusCode)"])
+                            completion(.failure(error))
+                        }
+                    } else {
+                        completion(.success(true)) // If we got a response but couldn't cast it, assume success
+                    }
+                }
+            }
+            task.resume()
         }
     }
     

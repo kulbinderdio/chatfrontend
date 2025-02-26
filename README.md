@@ -1,17 +1,18 @@
 # MacOS AI Chat App
 
-A native macOS application that serves as a GUI chat frontend for OpenAI-compatible models. The app allows users to interact with AI models, upload PDFs and TXT files to use their text in prompts, and configure model settings—all without requiring complex server-side deployment.
+A native macOS application that serves as a GUI chat frontend for OpenAI-compatible models, including local models running on Ollama.
+
+![MacOS AI Chat App Screenshot](docs/images/screenshot.png)
 
 ## Features
 
-- Native macOS UI with a clean, ChatGPT-style interface
-- Multi-turn conversation support with persistent context
-- Searchable conversation history stored locally
-- Support for OpenAI-compatible endpoints, including local models running on Ollama
-- Drag-and-drop support for PDFs and TXT files
-- Secure storage of API keys in macOS Keychain
-- Customizable model parameters (temperature, max tokens, etc.)
-- Dark mode support
+- **Native macOS UI** with a clean, ChatGPT-style interface
+- **Multi-turn conversation support** with persistent context
+- **Searchable conversation history** stored locally
+- **Document handling** - drag and drop PDFs and TXT files to include their content in prompts
+- **Profile management** - create and switch between different model configurations
+- **Menu bar integration** - quick access from the macOS menu bar
+- **Dark mode support** - follows macOS system theme
 
 ## Requirements
 
@@ -23,93 +24,76 @@ A native macOS application that serves as a GUI chat frontend for OpenAI-compati
 
 ### Option 1: Download the Release
 
-1. Go to the [Releases](https://github.com/yourusername/MacOSChatApp/releases) page
-2. Download the latest release DMG file
-3. Open the DMG file and drag the app to your Applications folder
+1. Go to the [Releases](https://github.com/yourusername/macoschatapp/releases) page
+2. Download the latest `.dmg` file
+3. Open the DMG and drag the app to your Applications folder
 
 ### Option 2: Build from Source
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/MacOSChatApp.git
-   cd MacOSChatApp
+   git clone https://github.com/yourusername/macoschatapp.git
+   cd macoschatapp
    ```
 
-2. Build the project using Swift Package Manager:
+2. Open the project in Xcode:
    ```bash
-   swift build -c release
+   open MacOSChatApp.xcodeproj
    ```
 
-3. Run the app:
-   ```bash
-   .build/release/MacOSChatApp
-   ```
+3. Build the project (⌘B) and run (⌘R)
 
-Alternatively, open the project in Xcode and build/run from there.
+Alternatively, you can use the provided build script:
+```bash
+./build_app.sh
+```
 
 ## Usage
 
-### Setting Up API Keys
+### Setting Up API Access
 
 1. Launch the app
-2. Click on the app icon in the menu bar
-3. Go to Settings (or press `Cmd+,`)
-4. In the API tab, enter your OpenAI API key
-5. Click Save
+2. Click on the menu bar icon to open the chat window
+3. Open Settings
+4. Create a new profile with your API key and endpoint
+   - For OpenAI: Use `https://api.openai.com/v1/chat/completions` as the endpoint
+   - For Ollama: Use `http://localhost:11434` as the endpoint
 
-### Starting a Conversation
+### Chatting
 
-1. Click on the app icon in the menu bar
-2. Type your message in the text field at the bottom
-3. Press Enter or click the send button
+1. Type your message in the input field
+2. Press Enter or click the send button
+3. View the AI's response in the chat window
 
-### Using Documents
+### Document Handling
 
 1. Drag and drop a PDF or TXT file into the chat window
-2. The app will extract the text from the document
-3. Edit the extracted text if needed
-4. Send the message
+2. Edit the extracted text if needed
+3. Send the content to the AI
 
 ### Managing Conversations
 
-1. Click on the sidebar button to show the conversation list
-2. Select a conversation to view it
-3. Use the search bar to find specific conversations
-4. Click the export button to save a conversation as text or markdown
+1. Use the sidebar to view past conversations
+2. Search for specific conversations
+3. Create a new conversation with the "+" button
+4. Export conversations as text, markdown, or PDF
 
-## Development
+## Project Structure
 
-### Project Structure
+- **App**: Main application entry point
+- **UI**: User interface components
+  - **Views**: Main views (ChatView, SettingsView, etc.)
+  - **Components**: Reusable UI components
+  - **ViewModels**: View models for the MVVM architecture
+  - **Managers**: UI-related managers (MenuBarManager, etc.)
+- **Data**: Data handling and persistence
+  - **Models**: Data models
+  - **Managers**: Data managers (DatabaseManager, KeychainManager, etc.)
+  - **Services**: Services for API communication and document handling
 
-- `App/`: Contains the main app entry point
-- `UI/`: Contains all UI-related code
-  - `Views/`: Main views of the application
-  - `Components/`: Reusable UI components
-  - `ViewModels/`: View models for the MVVM architecture
-- `Data/`: Contains all data-related code
-  - `Models/`: Data models
-  - `Managers/`: Managers for various services (database, keychain, etc.)
-  - `Services/`: Services for API communication, document handling, etc.
-- `Utils/`: Contains utility code
-  - `Extensions/`: Swift extensions
-  - `Constants.swift`: App-wide constants
+## Contributing
 
-### Dependencies
-
-- [SQLite.swift](https://github.com/stephencelis/SQLite.swift): SQLite database interface
-- [KeychainAccess](https://github.com/kishikawakatsumi/KeychainAccess): Simplified Keychain API
-- [Alamofire](https://github.com/Alamofire/Alamofire): HTTP networking
-- [SwiftyJSON](https://github.com/SwiftyJSON/SwiftyJSON): JSON parsing
-- [Down](https://github.com/iwasrobbed/Down): Markdown rendering
-
-### Testing
-
-Run the tests using Swift Package Manager:
-```bash
-swift test
-```
-
-Or run the tests in Xcode.
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to this project.
 
 ## License
 
@@ -117,5 +101,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [OpenAI](https://openai.com/) for their API
-- [Ollama](https://ollama.ai/) for local model support
+- [SwiftUI](https://developer.apple.com/xcode/swiftui/) - UI framework
+- [SQLite.swift](https://github.com/stephencelis/SQLite.swift) - SQLite database interface
+- [KeychainAccess](https://github.com/kishikawakatsumi/KeychainAccess) - Keychain wrapper
+- [Alamofire](https://github.com/Alamofire/Alamofire) - HTTP networking
+- [SwiftyJSON](https://github.com/SwiftyJSON/SwiftyJSON) - JSON parsing
