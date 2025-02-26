@@ -4,6 +4,7 @@ import Down
 struct MessageBubble: View {
     let message: Message
     @Environment(\.colorScheme) private var colorScheme
+    @State private var isCopied: Bool = false
     
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -21,22 +22,43 @@ struct MessageBubble: View {
             
             VStack(alignment: message.role == "user" ? .trailing : .leading, spacing: 4) {
                 // Message content
-                if message.role == "assistant" {
-                    // Use MarkdownText for assistant messages
-                    MarkdownText(message.content)
-                        .padding(12)
-                        .background(bubbleColor)
-                        .foregroundColor(textColor)
-                        .cornerRadius(12)
-                        .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
-                } else {
-                    // Regular text for user messages
-                    Text(message.content)
-                        .padding(12)
-                        .background(bubbleColor)
-                        .foregroundColor(textColor)
-                        .cornerRadius(12)
-                        .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
+                ZStack(alignment: .topTrailing) {
+                    if message.role == "assistant" {
+                        // Use MarkdownText for assistant messages
+                        MarkdownText(message.content)
+                            .padding(12)
+                            .background(bubbleColor)
+                            .foregroundColor(textColor)
+                            .cornerRadius(12)
+                            .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
+                        
+                        // Copy button for assistant messages
+                        Button(action: {
+                            copyToClipboard(message.content)
+                        }) {
+                            Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
+                                .font(.system(size: 12))
+                                .padding(6)
+                                .background(
+                                    Circle()
+                                        .fill(isCopied ? Color.green.opacity(0.9) : Color.white.opacity(0.9))
+                                        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                                )
+                                .foregroundColor(isCopied ? .white : .black)
+                        }
+                        .buttonStyle(BorderlessButtonStyle())
+                        .offset(x: 8, y: -8)
+                        .help(isCopied ? "Copied!" : "Copy to clipboard")
+                        .animation(.easeInOut(duration: 0.2), value: isCopied)
+                    } else {
+                        // Regular text for user messages
+                        Text(message.content)
+                            .padding(12)
+                            .background(bubbleColor)
+                            .foregroundColor(textColor)
+                            .cornerRadius(12)
+                            .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
+                    }
                 }
                 
                 // Timestamp
@@ -90,6 +112,24 @@ struct MessageBubble: View {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: message.timestamp)
+    }
+    
+    private func copyToClipboard(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        
+        // Show visual feedback
+        withAnimation {
+            isCopied = true
+        }
+        
+        // Reset after a delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            withAnimation {
+                isCopied = false
+            }
+        }
     }
 }
 
