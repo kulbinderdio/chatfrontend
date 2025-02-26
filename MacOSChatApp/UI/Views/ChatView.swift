@@ -59,6 +59,10 @@ struct ChatView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .frame(maxWidth: 200)
+                        .onChange(of: viewModel.profileManager.selectedProfileId) { newProfileId in
+                            print("DEBUG - ChatView: Profile changed to ID: \(String(describing: newProfileId))")
+                            viewModel.updateAPIClientForSelectedProfile()
+                        }
                         
                         Spacer()
                     }

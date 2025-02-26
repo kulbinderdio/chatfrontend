@@ -36,7 +36,7 @@ class ChatViewModel: ObservableObject {
         updateAPIClientForSelectedProfile()
     }
     
-    private func updateAPIClientForSelectedProfile() {
+    func updateAPIClientForSelectedProfile() {
         guard let profile = profileManager.getSelectedProfile() else {
             print("DEBUG - ChatViewModel: No selected profile found")
             return
@@ -72,6 +72,11 @@ class ChatViewModel: ObservableObject {
                 errorMessage = "Failed to update conversation profile: \(error.localizedDescription)"
                 print("DEBUG - ChatViewModel: Failed to update conversation profile: \(error.localizedDescription)")
             }
+        }
+        
+        // Force a UI refresh to ensure the profile change is reflected
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
         }
     }
     
@@ -148,6 +153,15 @@ class ChatViewModel: ObservableObject {
         print("DEBUG - ChatViewModel: Sending \(messages.count) messages to API")
         for (index, msg) in messages.enumerated() {
             print("DEBUG - ChatViewModel: Message \(index): role=\(msg.role), content=\(msg.content.prefix(30))...")
+        }
+        
+        // Make sure we're using the current profile
+        updateAPIClientForSelectedProfile()
+        
+        // Log which profile and model we're using
+        if let profile = profileManager.getSelectedProfile() {
+            print("DEBUG - ChatViewModel: Using profile for message: \(profile.name)")
+            print("DEBUG - ChatViewModel: Using model: \(profile.modelName)")
         }
         
         // Send to API

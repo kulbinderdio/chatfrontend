@@ -8,6 +8,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Keep a reference to the main window
     private var mainWindow: NSWindow?
     
+    // Persistent window to keep the app running
+    var persistentWindow: NSWindow?
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Set the activation policy to accessory to keep the app running without a dock icon
         NSApplication.shared.setActivationPolicy(.accessory)
@@ -42,6 +45,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // If it's not the main window, just let it close
             if window !== mainWindow {
                 print("Window will close: \(window)")
+                
+                // Ensure the app doesn't quit when settings window is closed
+                DispatchQueue.main.async {
+                    // This ensures the app stays running even if all windows are closed
+                    NSApplication.shared.setActivationPolicy(.accessory)
+                }
             }
         }
     }
@@ -63,7 +72,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return .terminateNow
         }
         
+        // Check if this is a termination request from the system (e.g., logout, shutdown)
+        if let reason = sender.currentEvent?.data1, reason > 0 {
+            return .terminateNow
+        }
+        
         // For all other cases, prevent termination
+        print("Preventing application termination")
+        
+        // Force the app to stay alive by ensuring we have a window and status item
+        if persistentWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 1, height: 1),
+                styleMask: [],
+                backing: .buffered,
+                defer: false
+            )
+            window.isReleasedWhenClosed = false
+            window.orderOut(nil)
+            persistentWindow = window
+        }
+        
+        // Reset activation policy to ensure we stay in accessory mode
+        DispatchQueue.main.async {
+            NSApplication.shared.setActivationPolicy(.accessory)
+        }
+        
         return .terminateCancel
     }
 }

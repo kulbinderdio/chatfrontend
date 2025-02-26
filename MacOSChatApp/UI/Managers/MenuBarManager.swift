@@ -138,6 +138,9 @@ class MenuBarManager: NSObject, ObservableObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
+        
+        // Set this property to ensure the window doesn't cause the app to terminate
+        window.isReleasedWhenClosed = false
         window.center()
         window.title = "Settings"
         window.contentMinSize = NSSize(width: 800, height: 600)

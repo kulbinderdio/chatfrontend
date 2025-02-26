@@ -414,5 +414,26 @@ class ModelConfigurationManager: ObservableObject {
             modelName: modelName,
             parameters: parameters
         )
+        
+        // If this is an Ollama model, update the Ollama client
+        if modelName.hasPrefix("ollama:") {
+            let ollamaModelName = modelName.replacingOccurrences(of: "ollama:", with: "")
+            
+            // Initialize Ollama client if it doesn't exist
+            if ollamaClient == nil {
+                ollamaClient = OllamaAPIClient(
+                    endpoint: ollamaEndpoint,
+                    modelName: ollamaModelName
+                )
+            } else {
+                ollamaClient?.updateModelName(modelName: ollamaModelName)
+            }
+        }
+        
+        // Print debug information
+        print("DEBUG - ModelConfigurationManager: Configuration updated")
+        print("DEBUG - ModelConfigurationManager: Endpoint: \(endpoint.absoluteString)")
+        print("DEBUG - ModelConfigurationManager: Model: \(modelName)")
+        print("DEBUG - ModelConfigurationManager: API key present: \(!apiKey.isEmpty)")
     }
 }

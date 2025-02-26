@@ -78,17 +78,7 @@ struct GeneralSettingsView: View {
                 .pickerStyle(SegmentedPickerStyle())
             }
             
-            Section(header: Text("Ollama Integration")) {
-                Toggle("Enable Ollama", isOn: $viewModel.ollamaEnabled)
-                
-                if viewModel.ollamaEnabled {
-                    CustomTextField(
-                        text: $viewModel.ollamaEndpoint,
-                        placeholder: "Ollama Endpoint"
-                    )
-                    .frame(height: 40)
-                }
-            }
+            // Removed Ollama section as it's now handled through profiles
             
             Section(header: Text("Model Parameters")) {
                 VStack(alignment: .leading) {

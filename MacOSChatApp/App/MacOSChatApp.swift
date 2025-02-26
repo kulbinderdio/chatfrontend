@@ -89,6 +89,21 @@ struct MacOSChatApp: App {
                     
                     // Prevent app from quitting when all windows are closed
                     NSApplication.shared.setActivationPolicy(.accessory)
+                    
+                    // Create a persistent window to keep the app running
+                    let window = NSWindow(
+                        contentRect: NSRect(x: 0, y: 0, width: 1, height: 1),
+                        styleMask: [],
+                        backing: .buffered,
+                        defer: false
+                    )
+                    window.isReleasedWhenClosed = false
+                    window.orderOut(nil)
+                    
+                    // Store the window in the app delegate
+                    if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                        appDelegate.persistentWindow = window
+                    }
                 }
         }
         .windowStyle(HiddenTitleBarWindowStyle())
@@ -106,12 +121,7 @@ struct MacOSChatApp: App {
             CommandGroup(replacing: .windowSize) {}
         }
         
-        Settings {
-            SettingsView(
-                viewModel: settingsViewModel,
-                profileManager: profileManager
-            )
-        }
+        // Remove the Settings scene and only use the custom window from MenuBarManager
     }
     
     private func setupMenuBar() {
