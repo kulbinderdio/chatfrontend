@@ -28,7 +28,6 @@ class KeychainManager: ObservableObject {
         
         // Save to UserDefaults
         userDefaults.set(apiKey, forKey: userDefaultsKey)
-        print("API key saved for profile: \(String(describing: profileId))")
     }
     
     func getAPIKey() -> String? {
@@ -65,7 +64,6 @@ class KeychainManager: ObservableObject {
         
         // Remove from UserDefaults
         userDefaults.removeObject(forKey: userDefaultsKey)
-        print("API key deleted for profile: \(String(describing: profileId))")
     }
     
     // MARK: - Profile Methods
@@ -82,9 +80,8 @@ class KeychainManager: ObservableObject {
             
             // Save to UserDefaults
             userDefaults.set(data, forKey: userDefaultsKey)
-            print("Profile saved: \(profile.name)")
         } catch {
-            print("Failed to encode profile: \(error.localizedDescription)")
+            // Failed to encode profile
         }
     }
     
@@ -97,7 +94,7 @@ class KeychainManager: ObservableObject {
                 let decoder = JSONDecoder()
                 return try decoder.decode(ModelProfile.self, from: cachedData)
             } catch {
-                print("Failed to decode cached profile: \(error.localizedDescription)")
+                // Failed to decode cached profile
             }
         }
         
@@ -111,7 +108,7 @@ class KeychainManager: ObservableObject {
                 let profile = try decoder.decode(ModelProfile.self, from: data)
                 return profile
             } catch {
-                print("Failed to decode profile from UserDefaults: \(error.localizedDescription)")
+                // Failed to decode profile from UserDefaults
             }
         }
         
@@ -121,8 +118,6 @@ class KeychainManager: ObservableObject {
     func getAllProfiles() -> [ModelProfile] {
         // This is a placeholder implementation
         // In a real implementation, we would fetch all profiles from UserDefaults
-        
-        print("Fetching all profiles")
         return ModelProfile.defaultProfiles
     }
     
@@ -134,6 +129,5 @@ class KeychainManager: ObservableObject {
         
         // Remove from UserDefaults
         userDefaults.removeObject(forKey: userDefaultsKey)
-        print("Profile deleted: \(id)")
     }
 }
