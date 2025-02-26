@@ -25,8 +25,6 @@ class DatabaseManager: ObservableObject {
         
         // Create tables if they don't exist
         try DatabaseSchema.createTables(db: db)
-        
-        print("DatabaseManager initialized")
     }
     
     // For testing purposes
@@ -60,7 +58,6 @@ class DatabaseManager: ObservableObject {
         
         do {
             try db.run(insert)
-            print("Created conversation: \(id)")
             
             return Conversation(
                 id: id,
@@ -71,7 +68,6 @@ class DatabaseManager: ObservableObject {
                 profileId: profileId
             )
         } catch {
-            print("Failed to create conversation: \(error.localizedDescription)")
             // Return a conversation anyway for now, but in a real app we would handle this error
             return Conversation(
                 id: id,
@@ -89,8 +85,6 @@ class DatabaseManager: ObservableObject {
         
         do {
             if let row = try db.pluck(query) {
-                print("Fetching conversation: \(id)")
-                
                 let conversation = Conversation(
                     id: row[DatabaseSchema.conversationId],
                     title: row[DatabaseSchema.conversationTitle],
@@ -103,7 +97,7 @@ class DatabaseManager: ObservableObject {
                 return conversation
             }
         } catch {
-            print("Error getting conversation: \(error.localizedDescription)")
+            // Error handling is silent in release builds
         }
         
         return nil
@@ -117,8 +111,6 @@ class DatabaseManager: ObservableObject {
         var conversations: [Conversation] = []
         
         do {
-            print("Fetching all conversations")
-            
             for row in try db.prepare(query) {
                 let conversation = Conversation(
                     id: row[DatabaseSchema.conversationId],
@@ -131,7 +123,7 @@ class DatabaseManager: ObservableObject {
                 conversations.append(conversation)
             }
         } catch {
-            print("Error getting all conversations: \(error.localizedDescription)")
+            // Error handling is silent in release builds
         }
         
         return conversations
@@ -148,9 +140,8 @@ class DatabaseManager: ObservableObject {
         
         do {
             try db.run(update)
-            print("Updated conversation: \(conversation.id)")
         } catch {
-            print("Error updating conversation: \(error.localizedDescription)")
+            // Error handling is silent in release builds
         }
     }
     
@@ -197,7 +188,6 @@ class DatabaseManager: ObservableObject {
         
         do {
             if try db.run(conversation.delete()) > 0 {
-                print("Deleted conversation: \(id)")
                 return
             } else {
                 throw DatabaseError.notFound
@@ -225,10 +215,8 @@ class DatabaseManager: ObservableObject {
             let conversation = DatabaseSchema.conversations.filter(DatabaseSchema.conversationId == conversationId)
             let update = conversation.update(DatabaseSchema.conversationUpdatedAt <- Date())
             try db.run(update)
-            
-            print("Added message \(message.id) to conversation \(conversationId)")
         } catch {
-            print("Error adding message: \(error.localizedDescription)")
+            // Error handling is silent in release builds
         }
     }
     
@@ -240,8 +228,6 @@ class DatabaseManager: ObservableObject {
         var messages: [Message] = []
         
         do {
-            print("Fetching messages for conversation: \(conversationId)")
-            
             for row in try db.prepare(query) {
                 let message = Message(
                     id: row[DatabaseSchema.messageId],
@@ -252,7 +238,7 @@ class DatabaseManager: ObservableObject {
                 messages.append(message)
             }
         } catch {
-            print("Error getting messages: \(error.localizedDescription)")
+            // Error handling is silent in release builds
         }
         
         return messages
@@ -298,7 +284,6 @@ class DatabaseManager: ObservableObject {
             
             do {
                 try db.run(insert)
-                print("Saved profile: \(profile.name)")
                 
                 // If this is the default profile, update other profiles
                 if profile.isDefault {
@@ -327,8 +312,6 @@ class DatabaseManager: ObservableObject {
         
         do {
             if try db.run(update) > 0 {
-                print("Updated profile: \(profile.name)")
-                
                 // If this is the default profile, update other profiles
                 if profile.isDefault {
                     try setDefaultProfile(id: profile.id)
@@ -368,7 +351,7 @@ class DatabaseManager: ObservableObject {
                 return profile
             }
         } catch {
-            print("Error getting profile: \(error.localizedDescription)")
+            // Error handling is silent in release builds
         }
         
         return nil
@@ -380,8 +363,6 @@ class DatabaseManager: ObservableObject {
         var profiles: [ModelProfile] = []
         
         do {
-            print("Fetching all profiles")
-            
             for row in try db.prepare(query) {
                 let parameters = ModelParameters(
                     temperature: row[DatabaseSchema.profileTemperature],
@@ -403,7 +384,7 @@ class DatabaseManager: ObservableObject {
                 profiles.append(profile)
             }
         } catch {
-            print("Error getting all profiles: \(error.localizedDescription)")
+            // Error handling is silent in release builds
         }
         
         return profiles
@@ -422,7 +403,6 @@ class DatabaseManager: ObservableObject {
         
         do {
             if try db.run(profileQuery.delete()) > 0 {
-                print("Deleted profile: \(id)")
                 return
             } else {
                 throw DatabaseError.notFound
@@ -444,7 +424,6 @@ class DatabaseManager: ObservableObject {
             let defaultUpdate = profileQuery.update(DatabaseSchema.profileIsDefault <- true)
             
             if try db.run(defaultUpdate) > 0 {
-                print("Set default profile: \(id)")
                 return
             } else {
                 throw DatabaseError.notFound
@@ -479,7 +458,7 @@ class DatabaseManager: ObservableObject {
                 return profile
             }
         } catch {
-            print("Error getting default profile: \(error.localizedDescription)")
+            // Error handling is silent in release builds
         }
         
         return nil
@@ -492,7 +471,7 @@ class DatabaseManager: ObservableObject {
             let count = try db.scalar(DatabaseSchema.conversations.count)
             return count
         } catch {
-            print("Error getting conversation count: \(error.localizedDescription)")
+            // Error handling is silent in release builds
             return 0
         }
     }
@@ -515,8 +494,6 @@ class DatabaseManager: ObservableObject {
         var conversations: [Conversation] = []
         
         do {
-            print("Searching conversations for: \(query)")
-            
             // Get title matches
             for row in try db.prepare(titleMatches) {
                 let conversation = Conversation(
@@ -556,7 +533,7 @@ class DatabaseManager: ObservableObject {
                 }
             }
         } catch {
-            print("Error searching conversations: \(error.localizedDescription)")
+            // Error handling is silent in release builds
         }
         
         // Sort by most recently updated

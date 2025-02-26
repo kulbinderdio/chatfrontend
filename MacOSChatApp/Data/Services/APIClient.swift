@@ -73,12 +73,11 @@ class APIClient {
         if apiEndpoint.contains("openrouter.ai") && !apiEndpoint.contains("/chat/completions") {
             if apiEndpoint.contains("/api/v1") {
                 correctedEndpoint = apiEndpoint + "/chat/completions"
-                print("DEBUG - APIClient: Corrected OpenRouter endpoint to: \(correctedEndpoint)")
             }
         }
         
         guard let url = URL(string: correctedEndpoint) else {
-            print("Invalid API endpoint URL")
+            // Invalid API endpoint URL
             return
         }
         
@@ -98,55 +97,36 @@ class APIClient {
             .validate()
             .responseData { [weak self] response in
                 guard let self = self else {
-                    print("DEBUG - APIClient: Self is nil in response handler")
                     completion(.failure(.unknownError))
                     return
                 }
                 
-                print("DEBUG - APIClient: Response status code: \(response.response?.statusCode ?? -1)")
-                print("DEBUG - APIClient: Response headers: \(response.response?.allHeaderFields ?? [:])")
-                
                 switch response.result {
                 case .success(let data):
-                    print("DEBUG - APIClient: Received successful response with \(data.count) bytes")
                     do {
-                        // Print the raw response for debugging
+                        // Check if the response is empty or not valid JSON
                         if let responseString = String(data: data, encoding: .utf8) {
-                            print("DEBUG - APIClient: Raw API response: \(responseString)")
-                            
-                            // Check if the response is empty or not valid JSON
                             if responseString.isEmpty || responseString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                print("DEBUG - APIClient: Empty response received")
                                 completion(.failure(.invalidResponse))
                                 return
                             }
-                        } else {
-                            print("DEBUG - APIClient: Could not convert response data to string")
                         }
                         
                         // Try to parse the JSON response
                         let json: JSON
                         do {
                             json = try JSON(data: data)
-                            print("DEBUG - APIClient: Successfully parsed JSON response")
-                            print("DEBUG - APIClient: JSON structure: \(json.type)")
                         } catch {
-                            print("DEBUG - APIClient: JSON parsing error: \(error)")
-                            
                             // Try to create a simple JSON object from the raw response
                             if let responseString = String(data: data, encoding: .utf8) {
-                                print("DEBUG - APIClient: Attempting to create simple JSON from raw response")
                                 let simpleJSON: [String: Any] = ["content": responseString]
                                 if let simpleData = try? JSONSerialization.data(withJSONObject: simpleJSON) {
                                     json = try JSON(data: simpleData)
-                                    print("DEBUG - APIClient: Created simple JSON from raw response")
                                 } else {
-                                    print("DEBUG - APIClient: Failed to create simple JSON")
                                     completion(.failure(.invalidResponse))
                                     return
                                 }
                             } else {
-                                print("DEBUG - APIClient: Could not convert response data to string for simple JSON")
                                 completion(.failure(.invalidResponse))
                                 return
                             }
@@ -157,51 +137,34 @@ class APIClient {
                         
                         // Check if this is an OpenRouter endpoint
                         let isOpenRouter = apiEndpoint.absoluteString.contains("openrouter.ai")
-                        print("DEBUG - APIClient: Is OpenRouter endpoint: \(isOpenRouter)")
                         
                         if isOpenRouter {
                             // OpenRouter follows OpenAI format
                             if let openRouterContent = json["choices"][0]["message"]["content"].string {
                                 content = openRouterContent
-                                print("DEBUG - APIClient: Extracted content from OpenRouter format")
-                            } else {
-                                print("DEBUG - APIClient: Failed to extract content from OpenRouter format")
                             }
                         } else {
                             // Standard OpenAI format
                             if let openAIContent = json["choices"][0]["message"]["content"].string {
                                 content = openAIContent
-                                print("DEBUG - APIClient: Extracted content from OpenAI format")
                             }
                             // Alternative format (some providers might use different structures)
                             else if let altContent = json["choices"][0]["text"].string {
                                 content = altContent
-                                print("DEBUG - APIClient: Extracted content from alternative format (choices[0].text)")
                             }
                             // Another alternative format
                             else if let directContent = json["content"].string {
                                 content = directContent
-                                print("DEBUG - APIClient: Extracted content from direct format (content)")
                             }
                             // Fallback for any other format
                             else if let responseContent = json["response"].string {
                                 content = responseContent
-                                print("DEBUG - APIClient: Extracted content from response format (response)")
                             } else {
-                                print("DEBUG - APIClient: Failed to extract content from any known format")
-                                
-                                // Try to print the JSON structure to help diagnose the issue
-                                if let jsonString = json.rawString() {
-                                    print("DEBUG - APIClient: Raw JSON string: \(jsonString)")
-                                }
-                                
                                 // Try to extract content from any string field at the top level
-                                for (key, value) in json.dictionaryValue {
+                                for (_, value) in json.dictionaryValue {
                                     if let stringValue = value.string {
-                                        print("DEBUG - APIClient: Found string value at key '\(key)': \(stringValue)")
                                         if content == nil {
                                             content = stringValue
-                                            print("DEBUG - APIClient: Using string value from key '\(key)' as content")
                                         }
                                     }
                                 }
@@ -209,7 +172,6 @@ class APIClient {
                         }
                         
                         if let extractedContent = content {
-                            print("DEBUG - APIClient: Successfully extracted content: \(extractedContent.prefix(30))...")
                             let responseId = UUID().uuidString
                             let responseMessage = Message(
                                 id: responseId,
@@ -219,15 +181,8 @@ class APIClient {
                             )
                             completion(.success(responseMessage))
                         } else {
-                            print("DEBUG - APIClient: Failed to extract content from JSON: \(json)")
-                            print("DEBUG - APIClient: JSON structure: \(json.type)")
-                            if let jsonString = json.rawString() {
-                                print("DEBUG - APIClient: Raw JSON string: \(jsonString)")
-                            }
-                            
                             // As a last resort, try to use the entire response as content
                             if let responseString = String(data: data, encoding: .utf8) {
-                                print("DEBUG - APIClient: Using entire response as content")
                                 let responseId = UUID().uuidString
                                 let responseMessage = Message(
                                     id: responseId,
@@ -237,38 +192,26 @@ class APIClient {
                                 )
                                 completion(.success(responseMessage))
                             } else {
-                                print("DEBUG - APIClient: Could not use response as content")
                                 completion(.failure(.invalidResponse))
                             }
                         }
                     } catch {
-                        print("DEBUG - APIClient: JSON parsing error: \(error)")
                         completion(.failure(.invalidResponse))
                     }
                     
                 case .failure(let error):
-                    print("DEBUG - APIClient: API request failed with error: \(error)")
-                    if let data = response.data, let responseString = String(data: data, encoding: .utf8) {
-                        print("DEBUG - APIClient: Response data: \(responseString)")
-                    }
                     if let statusCode = response.response?.statusCode {
-                        print("DEBUG - APIClient: Status code: \(statusCode)")
                         switch statusCode {
                         case 401:
-                            print("DEBUG - APIClient: Authentication failed (401)")
                             completion(.failure(.authenticationFailed))
                         case 429:
-                            print("DEBUG - APIClient: Rate limited (429)")
                             completion(.failure(.rateLimited))
                         case 500...599:
-                            print("DEBUG - APIClient: Server error (\(statusCode))")
                             completion(.failure(.serverError(statusCode)))
                         default:
-                            print("DEBUG - APIClient: Request failed with status code \(statusCode)")
                             completion(.failure(.requestFailed(error)))
                         }
                     } else {
-                        print("DEBUG - APIClient: No status code available")
                         completion(.failure(.requestFailed(error)))
                     }
                 }
@@ -366,9 +309,7 @@ class APIClient {
             ]
         }
         
-        print("DEBUG - Sending request to: \(apiEndpoint.absoluteString)")
-        print("DEBUG - Request body: \(body)")
-        print("DEBUG - Headers: \(request.allHTTPHeaderFields ?? [:])")
+        // Request details removed for production build
         
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         
@@ -466,11 +407,6 @@ class OllamaAPIClient {
                 switch response.result {
                 case .success(let data):
                     do {
-                        // Print the raw response for debugging
-                        if let responseString = String(data: data, encoding: .utf8) {
-                            print("Raw Ollama API response: \(responseString)")
-                        }
-                        
                         let json = try JSON(data: data)
                         if let content = json["response"].string {
                             let responseId = UUID().uuidString
@@ -482,11 +418,9 @@ class OllamaAPIClient {
                             )
                             completion(.success(responseMessage))
                         } else {
-                            print("Failed to extract content from Ollama JSON: \(json)")
                             completion(.failure(.invalidResponse))
                         }
                     } catch {
-                        print("Ollama JSON parsing error: \(error)")
                         completion(.failure(.invalidResponse))
                     }
                     
@@ -581,16 +515,10 @@ class OllamaAPIClient {
                     switch response.result {
                     case .success(let data):
                         do {
-                            // Print the raw response for debugging
-                            if let responseString = String(data: data, encoding: .utf8) {
-                                print("Raw Ollama models response: \(responseString)")
-                            }
-                            
                             let json = try JSON(data: data)
                             let models = json["models"].arrayValue.map { $0["name"].stringValue }
                             promise(.success(models))
                         } catch {
-                            print("Ollama models JSON parsing error: \(error)")
                             promise(.failure(.invalidResponse))
                         }
                         

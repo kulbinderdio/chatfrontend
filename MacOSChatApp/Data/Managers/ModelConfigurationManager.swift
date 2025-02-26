@@ -430,10 +430,6 @@ class ModelConfigurationManager: ObservableObject {
             }
         }
         
-        // Print debug information
-        print("DEBUG - ModelConfigurationManager: Configuration updated")
-        print("DEBUG - ModelConfigurationManager: Endpoint: \(endpoint.absoluteString)")
-        print("DEBUG - ModelConfigurationManager: Model: \(modelName)")
-        print("DEBUG - ModelConfigurationManager: API key present: \(!apiKey.isEmpty)")
+        // Debug information removed for production build
     }
 }
