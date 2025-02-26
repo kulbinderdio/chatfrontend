@@ -7,6 +7,9 @@ struct ChatView: View {
     @State private var isFilePickerPresented: Bool = false
     @State private var showConversationList: Bool = false
     
+    // Get a reference to the MenuBarManager to access the popover window
+    @EnvironmentObject private var menuBarManager: MenuBarManager
+    
     var body: some View {
         NavigationView {
             if showConversationList {
@@ -60,7 +63,6 @@ struct ChatView: View {
                         .pickerStyle(MenuPickerStyle())
                         .frame(maxWidth: 200)
                         .onChange(of: viewModel.profileManager.selectedProfileId) { newProfileId in
-                            print("DEBUG - ChatView: Profile changed to ID: \(String(describing: newProfileId))")
                             viewModel.updateAPIClientForSelectedProfile()
                         }
                         
@@ -93,7 +95,6 @@ struct ChatView: View {
                     }
                     // Add a second onChange to force refresh when objectWillChange is sent
                     .onReceive(viewModel.objectWillChange) { _ in
-                        print("DEBUG - ChatView: Received objectWillChange notification")
                         if let lastMessage = viewModel.messages.last {
                             scrollView.scrollTo(lastMessage.id, anchor: .bottom)
                         }

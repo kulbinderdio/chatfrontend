@@ -129,6 +129,7 @@ struct MacOSChatApp: App {
             viewModel: chatViewModel,
             conversationListViewModel: conversationListViewModel
         )
+        .environmentObject(menuBarManager)  // Inject the MenuBarManager as an environment object
         
         menuBarManager.setupMenuBar(
             with: chatView,

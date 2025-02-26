@@ -78,38 +78,7 @@ struct GeneralSettingsView: View {
                 .pickerStyle(SegmentedPickerStyle())
             }
             
-            // Removed Ollama section as it's now handled through profiles
-            
-            Section(header: Text("Model Parameters")) {
-                VStack(alignment: .leading) {
-                    Text("Temperature: \(viewModel.temperature, specifier: "%.1f")")
-                    Slider(value: $viewModel.temperature, in: 0...2, step: 0.1)
-                }
-                
-                VStack(alignment: .leading) {
-                    Text("Max Tokens: \(viewModel.maxTokens)")
-                    Slider(value: $viewModel.maxTokensDouble, in: 256...4096, step: 256)
-                }
-                
-                VStack(alignment: .leading) {
-                    Text("Top-p: \(viewModel.topP, specifier: "%.1f")")
-                    Slider(value: $viewModel.topP, in: 0...1, step: 0.1)
-                }
-                
-                VStack(alignment: .leading) {
-                    Text("Frequency Penalty: \(viewModel.frequencyPenalty, specifier: "%.1f")")
-                    Slider(value: $viewModel.frequencyPenalty, in: 0...2, step: 0.1)
-                }
-                
-                VStack(alignment: .leading) {
-                    Text("Presence Penalty: \(viewModel.presencePenalty, specifier: "%.1f")")
-                    Slider(value: $viewModel.presencePenalty, in: 0...2, step: 0.1)
-                }
-                
-                Button("Reset to Defaults") {
-                    viewModel.resetToDefaults()
-                }
-            }
+            // Removed model parameters section as it's now handled through profiles
         }
     }
 }

@@ -10,11 +10,16 @@ class MenuBarManager: NSObject, ObservableObject, NSWindowDelegate {
     private var eventMonitor: EventMonitor?
     private var settingsWindow: NSWindow?
     
+    // Expose the popover window for document picker
+    var popoverWindow: NSWindow? {
+        return popover?.contentViewController?.view.window
+    }
+    
     // References to managers and view models needed for settings
     private var settingsViewModel: SettingsViewModel?
     private var profileManager: ProfileManager?
     
-    func setupMenuBar(with rootView: ChatView, settingsViewModel: SettingsViewModel, profileManager: ProfileManager) {
+    func setupMenuBar<T: View>(with rootView: T, settingsViewModel: SettingsViewModel, profileManager: ProfileManager) {
         // Store references to managers and view models
         self.settingsViewModel = settingsViewModel
         self.profileManager = profileManager

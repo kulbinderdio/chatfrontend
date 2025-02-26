@@ -46,7 +46,7 @@ class APIClient {
         if apiEndpoint.contains("openrouter.ai") && !apiEndpoint.contains("/chat/completions") {
             if apiEndpoint.contains("/api/v1") {
                 correctedEndpoint = apiEndpoint + "/chat/completions"
-                print("DEBUG - APIClient: Corrected OpenRouter endpoint to: \(correctedEndpoint)")
+                // Corrected OpenRouter endpoint
             }
         }
         
@@ -92,14 +92,7 @@ class APIClient {
     func sendMessage(messages: [Message], parameters: ModelParameters, completion: @escaping (Result<Message, APIClientError>) -> Void) {
         let request = createRequest(messages: messages, parameters: parameters)
         
-        print("DEBUG - APIClient: Sending request to \(apiEndpoint.absoluteString)")
-        print("DEBUG - APIClient: Using model: \(modelName)")
-        print("DEBUG - APIClient: API key present: \(!apiKey.isEmpty)")
-        print("DEBUG - APIClient: Request headers: \(request.allHTTPHeaderFields ?? [:])")
-        
-        if let httpBody = request.httpBody, let bodyString = String(data: httpBody, encoding: .utf8) {
-            print("DEBUG - APIClient: Request body: \(bodyString)")
-        }
+        // Request is ready to be sent
         
         session.request(request)
             .validate()

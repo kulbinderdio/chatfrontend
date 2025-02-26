@@ -1,6 +1,12 @@
 import SwiftUI
 import AppKit
 
+extension NSApplication {
+    var mainWindow: NSWindow? {
+        return windows.first { $0.isVisible }
+    }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     // Keep a strong reference to the status item
     private var statusItem: NSStatusItem?
@@ -44,8 +50,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let window = notification.object as? NSWindow {
             // If it's not the main window, just let it close
             if window !== mainWindow {
-                print("Window will close: \(window)")
-                
                 // Ensure the app doesn't quit when settings window is closed
                 DispatchQueue.main.async {
                     // This ensures the app stays running even if all windows are closed
@@ -78,7 +82,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // For all other cases, prevent termination
-        print("Preventing application termination")
         
         // Force the app to stay alive by ensuring we have a window and status item
         if persistentWindow == nil {
