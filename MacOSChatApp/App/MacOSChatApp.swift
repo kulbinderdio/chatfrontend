@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct MacOSChatApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     // Database Manager
     @StateObject private var databaseManager: DatabaseManager
     
@@ -85,9 +86,25 @@ struct MacOSChatApp: App {
                 .frame(width: 0, height: 0)
                 .onAppear {
                     setupMenuBar()
+                    
+                    // Prevent app from quitting when all windows are closed
+                    NSApplication.shared.setActivationPolicy(.accessory)
                 }
         }
         .windowStyle(HiddenTitleBarWindowStyle())
+        .commands {
+            // Add a custom command group to prevent the app from quitting when all windows are closed
+            CommandGroup(replacing: .appInfo) {
+                Button("About MacOSChatApp") {
+                    // Show about dialog
+                    NSApplication.shared.orderFrontStandardAboutPanel(nil)
+                }
+            }
+            
+            CommandGroup(replacing: .newItem) {}
+            
+            CommandGroup(replacing: .windowSize) {}
+        }
         
         Settings {
             SettingsView(
@@ -103,6 +120,10 @@ struct MacOSChatApp: App {
             conversationListViewModel: conversationListViewModel
         )
         
-        menuBarManager.setupMenuBar(with: chatView)
+        menuBarManager.setupMenuBar(
+            with: chatView,
+            settingsViewModel: settingsViewModel,
+            profileManager: profileManager
+        )
     }
 }

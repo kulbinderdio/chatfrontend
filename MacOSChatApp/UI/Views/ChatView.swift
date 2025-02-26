@@ -18,32 +18,50 @@ struct ChatView: View {
             // Chat area
             VStack(spacing: 0) {
                 // Chat header
-                HStack {
-                    Button(action: {
-                        withAnimation {
-                            showConversationList.toggle()
+                VStack(spacing: 8) {
+                    HStack {
+                        Button(action: {
+                            withAnimation {
+                                showConversationList.toggle()
+                            }
+                        }) {
+                            Image(systemName: "sidebar.left")
+                                .font(.system(size: 16))
                         }
-                    }) {
-                        Image(systemName: "sidebar.left")
-                            .font(.system(size: 16))
+                        .buttonStyle(.plain)
+                        .help(showConversationList ? "Hide conversation list" : "Show conversation list")
+                        
+                        Text(conversationListViewModel.currentConversationTitle ?? "New Conversation")
+                            .font(.headline)
+                            .lineLimit(1)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            createNewConversation()
+                        }) {
+                            Image(systemName: "square.and.pencil")
+                                .font(.system(size: 16))
+                        }
+                        .buttonStyle(.plain)
+                        .help("New conversation")
                     }
-                    .buttonStyle(.plain)
-                    .help(showConversationList ? "Hide conversation list" : "Show conversation list")
                     
-                    Text(conversationListViewModel.currentConversationTitle ?? "New Conversation")
-                        .font(.headline)
-                        .lineLimit(1)
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        createNewConversation()
-                    }) {
-                        Image(systemName: "square.and.pencil")
-                            .font(.system(size: 16))
+                    // Profile selector
+                    HStack {
+                        Text("Profile:")
+                            .font(.subheadline)
+                        
+                        Picker("Profile", selection: $viewModel.profileManager.selectedProfileId) {
+                            ForEach(viewModel.profileManager.profiles) { profile in
+                                Text(profile.name).tag(profile.id as String?)
+                            }
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .frame(maxWidth: 200)
+                        
+                        Spacer()
                     }
-                    .buttonStyle(.plain)
-                    .help("New conversation")
                 }
                 .padding()
                 .background(Color(.windowBackgroundColor))
@@ -65,6 +83,13 @@ struct ChatView: View {
                         .padding()
                     }
                     .onChange(of: viewModel.messages.count) { _ in
+                        if let lastMessage = viewModel.messages.last {
+                            scrollView.scrollTo(lastMessage.id, anchor: .bottom)
+                        }
+                    }
+                    // Add a second onChange to force refresh when objectWillChange is sent
+                    .onReceive(viewModel.objectWillChange) { _ in
+                        print("DEBUG - ChatView: Received objectWillChange notification")
                         if let lastMessage = viewModel.messages.last {
                             scrollView.scrollTo(lastMessage.id, anchor: .bottom)
                         }

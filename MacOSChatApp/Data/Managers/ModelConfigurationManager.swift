@@ -356,7 +356,14 @@ class ModelConfigurationManager: ObservableObject {
     
     func testConnection(completion: @escaping (Result<Bool, APIClientError>) -> Void) {
         if selectedModel.hasPrefix("ollama:") && ollamaEnabled && ollamaClient != nil {
-            ollamaClient?.testConnection(completion: completion)
+            // For Ollama, first check if the endpoint is reachable
+            ollamaClient?.isEndpointReachable { isReachable in
+                if isReachable {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(.requestFailed(NSError(domain: "OllamaError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not connect to Ollama server. Please check the endpoint URL."]))))
+                }
+            }
         } else if let openAIClient = openAIClient {
             openAIClient.testConnection(completion: completion)
         } else {

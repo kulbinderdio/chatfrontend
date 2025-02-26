@@ -14,7 +14,7 @@ class ChatViewModel: ObservableObject {
     private let modelConfigManager: ModelConfigurationManager
     private let databaseManager: DatabaseManager
     let documentHandler: DocumentHandler
-    private let profileManager: ProfileManager
+    var profileManager: ProfileManager
     
     private(set) var currentConversationId: String?
     private var cancellables = Set<AnyCancellable>()
@@ -38,11 +38,21 @@ class ChatViewModel: ObservableObject {
     
     private func updateAPIClientForSelectedProfile() {
         guard let profile = profileManager.getSelectedProfile() else {
+            print("DEBUG - ChatViewModel: No selected profile found")
             return
         }
         
-        // Get API key from Keychain
-        let apiKey = profileManager.getAPIKey(for: profile.id) ?? ""
+        print("DEBUG - ChatViewModel: Selected profile: \(profile.name), Model: \(profile.modelName), Endpoint: \(profile.apiEndpoint)")
+        
+        // Get API key from Keychain (only if not an Ollama model)
+        let apiKey: String
+        if profile.modelName.hasPrefix("ollama:") {
+            apiKey = "" // Ollama doesn't need an API key
+            print("DEBUG - ChatViewModel: Using Ollama model, no API key needed")
+        } else {
+            apiKey = profileManager.getAPIKey(for: profile.id) ?? ""
+            print("DEBUG - ChatViewModel: API key retrieved: \(apiKey.isEmpty ? "Empty" : "Not empty")")
+        }
         
         // Update API client configuration
         modelConfigManager.updateConfiguration(
@@ -51,13 +61,16 @@ class ChatViewModel: ObservableObject {
             modelName: profile.modelName,
             parameters: profile.parameters
         )
+        print("DEBUG - ChatViewModel: API client configuration updated")
         
         // If we have a current conversation, update its profile
         if let conversationId = currentConversationId {
             do {
                 try databaseManager.updateConversationProfile(id: conversationId, profileId: profile.id)
+                print("DEBUG - ChatViewModel: Conversation profile updated")
             } catch {
                 errorMessage = "Failed to update conversation profile: \(error.localizedDescription)"
+                print("DEBUG - ChatViewModel: Failed to update conversation profile: \(error.localizedDescription)")
             }
         }
     }
@@ -113,40 +126,73 @@ class ChatViewModel: ObservableObject {
     func sendMessage(_ content: String) {
         guard !content.isEmpty else { return }
         
+        print("DEBUG - ChatViewModel: Sending message: \(content)")
+        
         // Create user message
         let userMessage = Message(role: "user", content: content)
         
         // Add to UI
         messages.append(userMessage)
+        print("DEBUG - ChatViewModel: User message added to UI, messages count: \(messages.count)")
         
         // Save to database
         if let conversationId = currentConversationId {
             databaseManager.addMessage(userMessage, toConversation: conversationId)
+            print("DEBUG - ChatViewModel: User message saved to database")
         }
         
         // Start loading
         isLoading = true
+        
+        // Log the current messages being sent
+        print("DEBUG - ChatViewModel: Sending \(messages.count) messages to API")
+        for (index, msg) in messages.enumerated() {
+            print("DEBUG - ChatViewModel: Message \(index): role=\(msg.role), content=\(msg.content.prefix(30))...")
+        }
         
         // Send to API
         modelConfigManager.sendMessage(messages: messages)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
-                    self?.isLoading = false
+                    guard let self = self else {
+                        print("DEBUG - ChatViewModel: Self is nil in receiveCompletion")
+                        return
+                    }
+                    
+                    self.isLoading = false
                     
                     if case .failure(let error) = completion {
-                        self?.errorMessage = error.localizedDescription
+                        self.errorMessage = error.localizedDescription
+                        print("DEBUG - ChatViewModel: API request failed: \(error.localizedDescription)")
+                    } else {
+                        print("DEBUG - ChatViewModel: API request completed successfully")
                     }
                 },
                 receiveValue: { [weak self] message in
-                    guard let self = self else { return }
+                    guard let self = self else {
+                        print("DEBUG - ChatViewModel: Self is nil in receiveValue")
+                        return
+                    }
                     
-                    // Add to UI
-                    self.messages.append(message)
+                    print("DEBUG - ChatViewModel: Received response: \(message.content.prefix(30))...")
+                    print("DEBUG - ChatViewModel: Response message ID: \(message.id)")
+                    print("DEBUG - ChatViewModel: Response message role: \(message.role)")
                     
-                    // Save to database
-                    if let conversationId = self.currentConversationId {
-                        self.databaseManager.addMessage(message, toConversation: conversationId)
+                    // Force UI update on main thread
+                    DispatchQueue.main.async {
+                        // Add to UI
+                        self.messages.append(message)
+                        print("DEBUG - ChatViewModel: Assistant message added to UI, messages count: \(self.messages.count)")
+                        
+                        // Save to database
+                        if let conversationId = self.currentConversationId {
+                            self.databaseManager.addMessage(message, toConversation: conversationId)
+                            print("DEBUG - ChatViewModel: Assistant message saved to database")
+                        }
+                        
+                        // Force UI refresh
+                        self.objectWillChange.send()
                     }
                 }
             )

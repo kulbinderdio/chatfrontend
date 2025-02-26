@@ -82,7 +82,7 @@ struct GeneralSettingsView: View {
                 Toggle("Enable Ollama", isOn: $viewModel.ollamaEnabled)
                 
                 if viewModel.ollamaEnabled {
-                    NativeTextField(
+                    CustomTextField(
                         text: $viewModel.ollamaEndpoint,
                         placeholder: "Ollama Endpoint"
                     )

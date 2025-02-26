@@ -199,14 +199,33 @@ class ProfileManager: ObservableObject {
             return
         }
         
-        let apiClient = APIClient(apiEndpoint: endpoint, apiKey: key, modelName: model, parameters: ModelParameters())
-        
-        apiClient.testConnection { result in
-            switch result {
-            case .success:
-                completion(.success(true))
-            case .failure(let error):
-                completion(.failure(error))
+        // Check if this is an Ollama model
+        if model.hasPrefix("ollama:") {
+            // For Ollama, we don't need an API key
+            let ollamaEndpoint = endpoint
+            let ollamaModelName = model.replacingOccurrences(of: "ollama:", with: "")
+            
+            let ollamaClient = OllamaAPIClient(endpoint: ollamaEndpoint, modelName: ollamaModelName)
+            
+            ollamaClient.isEndpointReachable { isReachable in
+                if isReachable {
+                    completion(.success(true))
+                } else {
+                    let error = NSError(domain: "OllamaError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not connect to Ollama server. Please check the endpoint URL."])
+                    completion(.failure(error))
+                }
+            }
+        } else {
+            // For OpenAI and other API providers
+            let apiClient = APIClient(apiEndpoint: endpoint, apiKey: key, modelName: model, parameters: ModelParameters())
+            
+            apiClient.testConnection { result in
+                switch result {
+                case .success:
+                    completion(.success(true))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
             }
         }
     }

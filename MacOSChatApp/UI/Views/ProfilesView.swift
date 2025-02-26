@@ -26,22 +26,38 @@ struct ProfilesView: View {
                         
                         Spacer()
                         
-                        if profile.isDefault {
-                            Text("Default")
-                                .font(.caption)
-                                .padding(4)
-                                .background(Color.blue.opacity(0.2))
-                                .cornerRadius(4)
-                        }
-                        
-                        if profile.id == profileManager.selectedProfileId {
-                            Text("Selected")
-                                .font(.caption)
-                                .padding(4)
-                                .background(Color.green.opacity(0.2))
-                                .cornerRadius(4)
+                        // Status indicators
+                        HStack(spacing: 8) {
+                            if profile.isDefault {
+                                Text("Default")
+                                    .font(.caption)
+                                    .padding(4)
+                                    .background(Color.blue.opacity(0.2))
+                                    .cornerRadius(4)
+                            }
+                            
+                            if profile.id == profileManager.selectedProfileId {
+                                Text("Selected")
+                                    .font(.caption)
+                                    .padding(4)
+                                    .background(Color.green.opacity(0.2))
+                                    .cornerRadius(4)
+                            }
+                            
+                            // Edit button
+                            Button(action: {
+                                selectedProfileId = profile.id
+                                isEditingProfile = true
+                            }) {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.blue)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                            .help("Edit profile")
                         }
                     }
+                    .padding(.vertical, 4)
                     .tag(profile.id)
                     .contextMenu {
                         Button("Edit") {

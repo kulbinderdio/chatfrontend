@@ -195,19 +195,40 @@ class SettingsViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        // Create temporary API client for testing
-        let parameters = ModelParameters()
-        let apiClient = APIClient(apiEndpoint: endpoint, apiKey: key, modelName: model, parameters: parameters)
-        
-        apiClient.testConnection { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                
-                switch result {
-                case .success:
-                    self?.errorMessage = nil
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+        // Check if this is an Ollama model
+        if model.hasPrefix("ollama:") {
+            // For Ollama, we don't need an API key
+            let ollamaEndpoint = ollamaEndpoint
+            let ollamaModelName = model.replacingOccurrences(of: "ollama:", with: "")
+            
+            let ollamaClient = OllamaAPIClient(endpoint: ollamaEndpoint, modelName: ollamaModelName)
+            
+            ollamaClient.isEndpointReachable { [weak self] isReachable in
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    
+                    if isReachable {
+                        self?.errorMessage = nil
+                    } else {
+                        self?.errorMessage = "Could not connect to Ollama server. Please check the endpoint URL."
+                    }
+                }
+            }
+        } else {
+            // For OpenAI and other API providers
+            let parameters = ModelParameters()
+            let apiClient = APIClient(apiEndpoint: endpoint, apiKey: key, modelName: model, parameters: parameters)
+            
+            apiClient.testConnection { [weak self] result in
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    
+                    switch result {
+                    case .success:
+                        self?.errorMessage = nil
+                    case .failure(let error):
+                        self?.errorMessage = error.localizedDescription
+                    }
                 }
             }
         }

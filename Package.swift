@@ -40,7 +40,10 @@ let package = Package(
                 .product(name: "SwiftyJSON", package: "SwiftyJSON"),
                 .product(name: "Down", package: "Down")
             ],
-            path: "MacOSChatApp"
+            path: "MacOSChatApp",
+            resources: [
+                .process("MacOSChatApp.entitlements")
+            ]
         ),
         .testTarget(
             name: "MacOSChatAppTests",
