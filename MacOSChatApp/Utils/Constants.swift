@@ -45,6 +45,18 @@ enum UIConstants {
     // Corner radius
     static let standardCornerRadius: CGFloat = 8
     static let bubbleCornerRadius: CGFloat = 10
+    
+    // Fonts
+    static let messageFontSize: CGFloat = 15
+    static let messageLineSpacing: CGFloat = 1.3
+    static let codeFontSize: CGFloat = 14
+    static let timestampFontSize: CGFloat = 11
+    
+    // Font names
+    static let primaryFontName = "SF Pro Text"
+    static let alternatePrimaryFontName = "Helvetica Neue"
+    static let codeFontName = "Menlo"
+    static let alternateCodeFontName = "SF Mono"
 }
 
 // MARK: - Database Constants

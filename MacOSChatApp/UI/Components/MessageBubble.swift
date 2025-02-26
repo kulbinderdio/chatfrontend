@@ -31,6 +31,8 @@ struct MessageBubble: View {
                             .foregroundColor(textColor)
                             .cornerRadius(12)
                             .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
+                            .font(.system(size: UIConstants.messageFontSize))
+                            .lineSpacing(UIConstants.messageLineSpacing)
                         
                         // Copy button for assistant messages
                         Button(action: {
@@ -58,12 +60,14 @@ struct MessageBubble: View {
                             .foregroundColor(textColor)
                             .cornerRadius(12)
                             .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
+                            .font(.system(size: UIConstants.messageFontSize))
+                            .lineSpacing(UIConstants.messageLineSpacing)
                     }
                 }
                 
                 // Timestamp
                 Text(formattedTime)
-                    .font(.caption2)
+                    .font(.system(size: UIConstants.timestampFontSize))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 4)
             }
@@ -143,6 +147,7 @@ struct MarkdownText: View {
     
     var body: some View {
         if let attributedString = try? Down(markdownString: content).toAttributedString() {
+            // Use the attributed string directly
             Text(AttributedString(attributedString))
         } else {
             Text(content)
