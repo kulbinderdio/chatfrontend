@@ -7,7 +7,7 @@ struct MessageBubble: View {
     @State private var isCopied: Bool = false
     
     var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+        HStack(alignment: .bottom, spacing: 4) { // Reduced spacing from 8 to 4
             // Avatar for assistant messages
             if message.role != "user" {
                 Image(systemName: "brain.head.profile")
@@ -26,7 +26,8 @@ struct MessageBubble: View {
                     if message.role == "assistant" {
                         // Use MarkdownText for assistant messages
                         MarkdownText(message.content)
-                            .padding(12)
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 10) // Reduced horizontal padding from 12 to 10
                             .background(bubbleColor)
                             .foregroundColor(textColor)
                             .cornerRadius(12)
@@ -85,7 +86,7 @@ struct MessageBubble: View {
                     )
             }
         }
-        .padding(.horizontal)
+        .padding(.horizontal, message.role == "user" ? 16 : 8) // Reduced horizontal padding for assistant messages
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(message.role == "user" ? "You said" : "Assistant said")

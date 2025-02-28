@@ -11,145 +11,20 @@ struct ChatView: View {
     @EnvironmentObject private var menuBarManager: MenuBarManager
     
     var body: some View {
-        NavigationView {
+        Group {
             if showConversationList {
-                // Conversation list sidebar
-                ConversationListView(viewModel: conversationListViewModel)
-                    .frame(minWidth: 250)
-            }
-            
-            // Chat area
-            VStack(spacing: 0) {
-                // Chat header
-                VStack(spacing: 8) {
-                    HStack {
-                        Button(action: {
-                            withAnimation {
-                                showConversationList.toggle()
-                            }
-                        }) {
-                            Image(systemName: "sidebar.left")
-                                .font(.system(size: 16))
-                        }
-                        .buttonStyle(.plain)
-                        .help(showConversationList ? "Hide conversation list" : "Show conversation list")
-                        
-                        Text(conversationListViewModel.currentConversationTitle ?? "New Conversation")
-                            .font(.headline)
-                            .lineLimit(1)
-                        
-                        Spacer()
-                        
-                        Button(action: {
-                            createNewConversation()
-                        }) {
-                            Image(systemName: "square.and.pencil")
-                                .font(.system(size: 16))
-                        }
-                        .buttonStyle(.plain)
-                        .help("New conversation")
-                    }
+                // Use NavigationView when showing conversation list
+                NavigationView {
+                    // Conversation list sidebar
+                    ConversationListView(viewModel: conversationListViewModel)
+                        .frame(minWidth: 250)
                     
-                    // Profile selector
-                    HStack {
-                        Text("Profile:")
-                            .font(.subheadline)
-                        
-                        Picker("Profile", selection: $viewModel.profileManager.selectedProfileId) {
-                            ForEach(viewModel.profileManager.profiles) { profile in
-                                Text(profile.name).tag(profile.id as String?)
-                            }
-                        }
-                        .pickerStyle(MenuPickerStyle())
-                        .frame(maxWidth: 200)
-                        .onChange(of: viewModel.profileManager.selectedProfileId) { newProfileId in
-                            viewModel.updateAPIClientForSelectedProfile()
-                        }
-                        
-                        Spacer()
-                    }
+                    // Chat area
+                    chatContentView
                 }
-                .padding()
-                .background(Color(.windowBackgroundColor))
-                
-                Divider()
-                
-                // Chat history
-                ScrollViewReader { scrollView in
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(viewModel.messages) { message in
-                                MessageBubble(message: message)
-                                    .id(message.id)
-                                    .accessibilityElement(children: .combine)
-                                    .accessibilityLabel(message.role == "user" ? "You said" : "Assistant said")
-                                    .accessibilityValue(message.content)
-                            }
-                        }
-                        .padding()
-                    }
-                    .onChange(of: viewModel.messages.count) { _ in
-                        if let lastMessage = viewModel.messages.last {
-                            scrollView.scrollTo(lastMessage.id, anchor: .bottom)
-                        }
-                    }
-                    // Add a second onChange to force refresh when objectWillChange is sent
-                    .onReceive(viewModel.objectWillChange) { _ in
-                        if let lastMessage = viewModel.messages.last {
-                            scrollView.scrollTo(lastMessage.id, anchor: .bottom)
-                        }
-                    }
-                }
-                
-                // Loading indicator
-                if viewModel.isLoading {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                            .scaleEffect(0.8)
-                            .padding(.vertical, 8)
-                        Spacer()
-                    }
-                }
-                
-                Divider()
-                
-                // Input area
-                HStack(alignment: .bottom) {
-                    Button(action: {
-                        isFilePickerPresented = true
-                    }) {
-                        Image(systemName: "paperclip")
-                            .font(.system(size: 16))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Attach a file")
-                    
-                    DocumentDropArea(onDocumentDropped: { url in
-                        viewModel.handleDocumentDropped(url: url)
-                    }) {
-                        TextEditor(text: $messageText)
-                            .frame(minHeight: 36, maxHeight: 120)
-                            .padding(8)
-                            .background(Color(.textBackgroundColor))
-                            .cornerRadius(8)
-                            .accessibilityLabel("Message input")
-                    }
-                    .accessibilityLabel("Document drop area")
-                    .accessibilityHint("Drag and drop PDF or TXT files here")
-                    
-                    Button(action: {
-                        sendMessage()
-                    }) {
-                        Image(systemName: "paperplane.fill")
-                            .font(.system(size: 16))
-                    }
-                    .buttonStyle(.plain)
-                    .keyboardShortcut(.return, modifiers: [.command])
-                    .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
-                    .help("Send message")
-                }
-                .padding()
+            } else {
+                // Use just the chat content when not showing conversation list
+                chatContentView
             }
         }
         .sheet(isPresented: $isFilePickerPresented) {
@@ -206,6 +81,141 @@ struct ChatView: View {
         .keyboardShortcut("n", modifiers: [.command]) { createNewConversation() }
         .keyboardShortcut("f", modifiers: [.command]) { showConversationList = true }
         .keyboardShortcut("d", modifiers: [.command]) { isFilePickerPresented = true }
+    }
+    
+    private var chatContentView: some View {
+        VStack(spacing: 0) {
+            // Chat header
+            VStack(spacing: 8) {
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            showConversationList.toggle()
+                        }
+                    }) {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .help(showConversationList ? "Hide conversation list" : "Show conversation list")
+                    
+                    Text(conversationListViewModel.currentConversationTitle ?? "New Conversation")
+                        .font(.headline)
+                        .lineLimit(1)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        createNewConversation()
+                    }) {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .help("New conversation")
+                }
+                
+                // Profile selector
+                HStack {
+                    Text("Profile:")
+                        .font(.subheadline)
+                    
+                    Picker("Profile", selection: $viewModel.profileManager.selectedProfileId) {
+                        ForEach(viewModel.profileManager.profiles) { profile in
+                            Text(profile.name).tag(profile.id as String?)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .frame(maxWidth: 200)
+                    .onChange(of: viewModel.profileManager.selectedProfileId) { newProfileId in
+                        viewModel.updateAPIClientForSelectedProfile()
+                    }
+                    
+                    Spacer()
+                }
+            }
+            .padding()
+            .background(Color(.windowBackgroundColor))
+            
+            Divider()
+            
+            // Chat history
+            ScrollViewReader { scrollView in
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(viewModel.messages) { message in
+                            MessageBubble(message: message)
+                                .id(message.id)
+                                .accessibilityElement(children: .combine)
+                                .accessibilityLabel(message.role == "user" ? "You said" : "Assistant said")
+                                .accessibilityValue(message.content)
+                        }
+                    }
+                    .padding()
+                }
+                .onChange(of: viewModel.messages.count) { _ in
+                    if let lastMessage = viewModel.messages.last {
+                        scrollView.scrollTo(lastMessage.id, anchor: .bottom)
+                    }
+                }
+                // Add a second onChange to force refresh when objectWillChange is sent
+                .onReceive(viewModel.objectWillChange) { _ in
+                    if let lastMessage = viewModel.messages.last {
+                        scrollView.scrollTo(lastMessage.id, anchor: .bottom)
+                    }
+                }
+            }
+            
+            // Loading indicator
+            if viewModel.isLoading {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .padding(.vertical, 8)
+                    Spacer()
+                }
+            }
+            
+            Divider()
+            
+            // Input area
+            HStack(alignment: .bottom) {
+                Button(action: {
+                    isFilePickerPresented = true
+                }) {
+                    Image(systemName: "paperclip")
+                        .font(.system(size: 16))
+                }
+                .buttonStyle(.plain)
+                .help("Attach a file")
+                
+                DocumentDropArea(onDocumentDropped: { url in
+                    viewModel.handleDocumentDropped(url: url)
+                }) {
+                    TextEditor(text: $messageText)
+                        .frame(minHeight: 36, maxHeight: 120)
+                        .padding(8)
+                        .background(Color(.textBackgroundColor))
+                        .cornerRadius(8)
+                        .accessibilityLabel("Message input")
+                }
+                .accessibilityLabel("Document drop area")
+                .accessibilityHint("Drag and drop PDF or TXT files here")
+                
+                Button(action: {
+                    sendMessage()
+                }) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 16))
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.return, modifiers: [.command])
+                .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
+                .help("Send message")
+            }
+            .padding()
+        }
     }
     
     private func sendMessage() {
