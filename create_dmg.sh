@@ -10,9 +10,10 @@ NC='\033[0m' # No Color
 
 # Default variables
 APP_NAME="MacOSChatApp"
+DISPLAY_NAME="BionicChat" # The name that will be shown in the DMG
 BUILD_TYPE="debug"
 INCLUDE_APPLICATIONS_LINK=false
-CUSTOM_DMG_NAME=""
+CUSTOM_DMG_NAME="bionicChat" # Default DMG name
 SKIP_BUILD=false
 CLEAN_BUILD=false
 MIN_DISK_SPACE=300 # Minimum disk space required in MB
@@ -115,21 +116,18 @@ done
 BUILD_DIR=".build/$BUILD_TYPE"
 APP_BUNDLE_DIR="$BUILD_DIR/$APP_NAME.app"
 TMP_DIR="tmp_dmg"
-VOLUME_NAME="$APP_NAME"
+VOLUME_NAME="$DISPLAY_NAME"
 
 # Set DMG name based on arguments
 if [ -n "$CUSTOM_DMG_NAME" ]; then
     DMG_NAME="$CUSTOM_DMG_NAME.dmg"
 else
-    if [ "$BUILD_TYPE" = "release" ]; then
-        DMG_NAME="${APP_NAME}_release.dmg"
-    else
-        DMG_NAME="${APP_NAME}_debug.dmg"
-    fi
+    DMG_NAME="$DISPLAY_NAME.dmg"
 fi
 
 print_section "Configuration"
 echo "App name: $APP_NAME"
+echo "Display name: $DISPLAY_NAME"
 echo "Build type: $BUILD_TYPE"
 echo "DMG name: $DMG_NAME"
 echo "Include Applications link: $INCLUDE_APPLICATIONS_LINK"
@@ -176,6 +174,13 @@ check_status "Temporary directory creation"
 # Copy app bundle to temporary directory
 cp -R "$APP_BUNDLE_DIR" "$TMP_DIR/"
 check_status "Copying app bundle"
+
+# Rename the app bundle to the display name
+if [ "$APP_NAME" != "$DISPLAY_NAME" ]; then
+    print_section "Renaming app bundle"
+    mv "$TMP_DIR/$APP_NAME.app" "$TMP_DIR/$DISPLAY_NAME.app"
+    check_status "Renaming app bundle"
+fi
 
 # Clean user data from the app bundle
 print_section "Cleaning user data"
