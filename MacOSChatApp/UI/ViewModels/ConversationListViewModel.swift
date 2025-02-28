@@ -20,14 +20,9 @@ class ConversationListViewModel: ObservableObject {
     private var currentPage: Int = 0
     
     var filteredConversations: [Conversation] {
-        if searchQuery.isEmpty {
-            return conversations
-        } else {
-            // Filter conversations by search query
-            return conversations.filter { conversation in
-                conversation.title.localizedCaseInsensitiveContains(searchQuery)
-            }
-        }
+        // Always return the current conversations list, which will be updated
+        // by the searchConversations method when the search query changes
+        return conversations
     }
     
     var currentConversationTitle: String? {
