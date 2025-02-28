@@ -17,7 +17,12 @@ struct SettingsView: View {
                 Spacer()
                 
                 Button(action: {
-                    presentationMode.wrappedValue.dismiss()
+                    // Properly dismiss the window
+                    if let window = NSApplication.shared.keyWindow {
+                        window.close()
+                    } else {
+                        presentationMode.wrappedValue.dismiss()
+                    }
                 }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title2)
@@ -139,7 +144,7 @@ struct AboutView: View {
                 .frame(width: 100, height: 100)
                 .foregroundColor(.blue)
             
-            Text("MacOSChatApp")
+            Text("bionicChat")
                 .font(.largeTitle)
                 .fontWeight(.bold)
             

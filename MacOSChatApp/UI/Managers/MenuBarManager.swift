@@ -126,6 +126,13 @@ class MenuBarManager: NSObject, ObservableObject, NSWindowDelegate {
             return
         }
         
+        // If there's already a settings window, just bring it to front
+        if let existingWindow = settingsWindow {
+            existingWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        
         // Create the settings view
         let settingsView = SettingsView(
             viewModel: settingsViewModel,
@@ -177,6 +184,11 @@ class MenuBarManager: NSObject, ObservableObject, NSWindowDelegate {
            closingWindow === settingsWindow {
             // Clear the reference to the settings window
             settingsWindow = nil
+            
+            // Ensure we reset the activation policy to prevent blank windows
+            DispatchQueue.main.async {
+                NSApplication.shared.setActivationPolicy(.accessory)
+            }
         }
     }
 }

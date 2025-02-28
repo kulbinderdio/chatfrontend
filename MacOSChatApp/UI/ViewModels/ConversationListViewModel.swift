@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import AppKit
+import UniformTypeIdentifiers
 
 class ConversationListViewModel: ObservableObject {
     @Published var conversations: [Conversation] = []
@@ -22,7 +23,10 @@ class ConversationListViewModel: ObservableObject {
         if searchQuery.isEmpty {
             return conversations
         } else {
-            return conversations
+            // Filter conversations by search query
+            return conversations.filter { conversation in
+                conversation.title.localizedCaseInsensitiveContains(searchQuery)
+            }
         }
     }
     
@@ -45,6 +49,35 @@ class ConversationListViewModel: ObservableObject {
                 self?.searchConversations(query: query)
             }
             .store(in: &cancellables)
+        
+        // Listen for conversation history cleared notification
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleConversationHistoryCleared),
+            name: Notification.Name("ConversationHistoryCleared"),
+            object: nil
+        )
+    }
+    
+    @objc private func handleConversationHistoryCleared() {
+        // Reload conversations when history is cleared
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Clear the conversations list
+            self.conversations = []
+            self.currentConversationId = nil
+            
+            // Create a new conversation immediately
+            let newConversationId = self.createNewConversation()
+            
+            // Notify that a new conversation has been created
+            NotificationCenter.default.post(
+                name: Notification.Name("NewConversationCreated"),
+                object: nil,
+                userInfo: ["conversationId": newConversationId as Any]
+            )
+        }
     }
     
     func loadConversations() {
@@ -196,16 +229,31 @@ class ConversationListViewModel: ObservableObject {
             // Set file name and extension based on format
             switch format {
             case .plainText:
-                savePanel.allowedFileTypes = ["txt"]
+                savePanel.allowedContentTypes = [UTType.plainText]
                 savePanel.nameFieldStringValue = "\(conversation.title).txt"
             case .markdown:
-                savePanel.allowedFileTypes = ["md"]
+                if #available(macOS 11.0, *) {
+                    // Create a custom UTType for markdown
+                    if let markdownType = UTType("public.markdown-text") ?? UTType("net.daringfireball.markdown") {
+                        savePanel.allowedContentTypes = [markdownType]
+                    } else {
+                        // Fallback to plain text if markdown type is not available
+                        savePanel.allowedContentTypes = [UTType.plainText]
+                    }
+                } else {
+                    // Fallback for older macOS versions
+                    #if compiler(>=5.3)
+                    savePanel.allowedContentTypes = [UTType.plainText]
+                    #else
+                    savePanel.allowedFileTypes = ["md"]
+                    #endif
+                }
                 savePanel.nameFieldStringValue = "\(conversation.title).md"
             case .pdf:
-                savePanel.allowedFileTypes = ["pdf"]
+                savePanel.allowedContentTypes = [UTType.pdf]
                 savePanel.nameFieldStringValue = "\(conversation.title).pdf"
             case .json:
-                savePanel.allowedFileTypes = ["json"]
+                savePanel.allowedContentTypes = [UTType.json]
                 savePanel.nameFieldStringValue = "\(conversation.title).json"
             }
             

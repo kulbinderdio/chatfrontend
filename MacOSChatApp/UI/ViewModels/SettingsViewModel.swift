@@ -262,6 +262,9 @@ class SettingsViewModel: ObservableObject {
                 errorMessage = "Failed to delete some conversations"
             }
         }
+        
+        // Post notification to refresh conversation list
+        NotificationCenter.default.post(name: Notification.Name("ConversationHistoryCleared"), object: nil)
     }
     
     func resetAllSettings() {

@@ -185,6 +185,14 @@ struct ChatView: View {
                 viewModel.loadOrCreateConversation(id: conversationId)
             }
         }
+        // Listen for changes in the conversation list
+        .onReceive(conversationListViewModel.$conversations) { _ in
+            // If there are no conversations, clear the current conversation
+            if conversationListViewModel.conversations.isEmpty {
+                viewModel.messages = []
+                viewModel.createNewConversation()
+            }
+        }
         .onChange(of: conversationListViewModel.currentConversationId) { newConversationId in
             // Load the selected conversation when it changes
             if let conversationId = newConversationId {

@@ -54,6 +54,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async {
                     // This ensures the app stays running even if all windows are closed
                     NSApplication.shared.setActivationPolicy(.accessory)
+                    
+                    // Force update to prevent blank windows
+                    if let statusItem = self.statusItem, statusItem.isVisible {
+                        statusItem.isVisible = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            statusItem.isVisible = true
+                        }
+                    }
+                    
+                    // Force a redraw of the status bar
+                    if let button = self.statusItem?.button {
+                        button.needsDisplay = true
+                    }
+                    
+                    // Force update of the main menu
+                    NSApp.mainMenu?.update()
                 }
             }
         }

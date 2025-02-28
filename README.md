@@ -31,7 +31,7 @@ A native macOS application that serves as a GUI chat frontend for OpenAI-compati
 ### Option 2: Build from Source
 
 1. Clone the repository:
-   ```bash
+   ```bash`
    git clone https://github.com/yourusername/macoschatapp.git
    cd macoschatapp
    ```
@@ -43,9 +43,49 @@ A native macOS application that serves as a GUI chat frontend for OpenAI-compati
 
 3. Build the project (⌘B) and run (⌘R)
 
-Alternatively, you can use the provided build script:
+Alternatively, you can use the provided build scripts:
+
 ```bash
+# Build the app
 ./build_app.sh
+
+# Create a DMG file for distribution
+./create_dmg.sh
+```
+
+The `create_dmg.sh` script supports several options:
+
+```bash
+# Create a DMG with release build
+./create_dmg.sh --release
+
+# Include a link to /Applications in the DMG for easy installation
+./create_dmg.sh --add-applications
+
+# Specify a custom name for the DMG file
+./create_dmg.sh --name "MyCustomName"
+
+# Clean build directory before building (useful for disk space issues)
+./create_dmg.sh --clean
+
+# Skip building the app (use existing app bundle)
+./create_dmg.sh --skip-build
+
+# Force build even with low disk space (use with caution)
+./create_dmg.sh --force
+
+# Show all available options
+./create_dmg.sh --help
+```
+
+If you encounter disk space issues during the build process, try these options:
+
+```bash
+# Clean build artifacts first to free up space
+./create_dmg.sh --name bionicChat --release --add-applications --clean
+
+# Or force the build to proceed despite low disk space (use with caution)
+./create_dmg.sh --name bionicChat --release --add-applications --force
 ```
 
 ## Usage

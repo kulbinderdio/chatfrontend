@@ -32,8 +32,44 @@ class ChatViewModel: ObservableObject {
             }
             .store(in: &cancellables)
         
+        // Listen for conversation history cleared notification
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleConversationHistoryCleared),
+            name: Notification.Name("ConversationHistoryCleared"),
+            object: nil
+        )
+        
+        // Listen for new conversation created notification
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleNewConversationCreated),
+            name: Notification.Name("NewConversationCreated"),
+            object: nil
+        )
+        
         loadOrCreateConversation()
         updateAPIClientForSelectedProfile()
+    }
+    
+    @objc private func handleConversationHistoryCleared() {
+        // Clear messages and wait for ConversationListViewModel to create a new conversation
+        DispatchQueue.main.async { [weak self] in
+            self?.messages = []
+            // Don't create a new conversation here - let the ConversationListViewModel handle it
+            // The ConversationListViewModel will create a new conversation and set currentConversationId
+            // which will trigger the onChange handler in ChatView
+        }
+    }
+    
+    @objc private func handleNewConversationCreated(_ notification: Notification) {
+        // Load the newly created conversation
+        if let userInfo = notification.userInfo,
+           let conversationId = userInfo["conversationId"] as? String {
+            DispatchQueue.main.async { [weak self] in
+                self?.loadConversation(id: conversationId)
+            }
+        }
     }
     
     func updateAPIClientForSelectedProfile() {
@@ -111,7 +147,7 @@ class ChatViewModel: ObservableObject {
         }
     }
     
-    private func createNewConversation() {
+    func createNewConversation() {
         // Get selected profile
         let profileId = profileManager.selectedProfileId
         
