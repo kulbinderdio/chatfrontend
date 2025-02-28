@@ -68,8 +68,47 @@ class ConversationListViewModel: ObservableObject {
             self.conversations = []
             self.currentConversationId = nil
             
+            // Verify that all conversations are actually deleted from the database
+            let remainingConversations = self.databaseManager.getAllConversations()
+            
+            if !remainingConversations.isEmpty {
+                // Try to delete them again individually as a fallback
+                for conversation in remainingConversations {
+                    do {
+                        try self.databaseManager.deleteConversation(id: conversation.id)
+                    } catch {
+                        // Silently continue
+                    }
+                }
+                
+                // Check again
+                let finalRemainingConversations = self.databaseManager.getAllConversations()
+                
+                if !finalRemainingConversations.isEmpty {
+                    self.errorMessage = "Failed to clear all conversations. Please try again."
+                    
+                    // Try to create a new conversation anyway
+                    let newConversationId = self.createNewConversation()
+                    
+                    // Reload the conversations list to ensure it's in sync with the database
+                    self.loadConversations()
+                    
+                    // Notify that a new conversation has been created
+                    NotificationCenter.default.post(
+                        name: Notification.Name("NewConversationCreated"),
+                        object: nil,
+                        userInfo: ["conversationId": newConversationId as Any]
+                    )
+                    
+                    return
+                }
+            }
+            
             // Create a new conversation immediately
             let newConversationId = self.createNewConversation()
+            
+            // Reload the conversations list to ensure it's in sync with the database
+            self.loadConversations()
             
             // Notify that a new conversation has been created
             NotificationCenter.default.post(

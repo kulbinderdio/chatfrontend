@@ -197,6 +197,95 @@ class DatabaseManager: ObservableObject {
         }
     }
     
+    func deleteAllConversations() throws {
+        do {
+            // Get the count before deletion for logging
+            let beforeCount = try db.scalar(DatabaseSchema.conversations.count)
+            
+            // Check if there are any conversations to delete
+            if beforeCount == 0 {
+                return
+            }
+            
+            // First, make sure foreign keys are enabled
+            try db.execute("PRAGMA foreign_keys = ON;")
+            
+            // Use a transaction to ensure atomicity
+            try db.transaction {
+                // First, delete all messages directly
+                try db.run(DatabaseSchema.messages.delete())
+                
+                // Verify that all messages are deleted
+                let messageCount = try db.scalar(DatabaseSchema.messages.count)
+                
+                if messageCount > 0 {
+                    try db.execute("DELETE FROM messages;")
+                    
+                    // Check again
+                    let messageCountAfterRawSQL = try db.scalar(DatabaseSchema.messages.count)
+                    
+                    if messageCountAfterRawSQL > 0 {
+                        throw DatabaseError.deleteFailed("Failed to delete all messages")
+                    }
+                }
+                
+                // Now delete all conversations
+                try db.run(DatabaseSchema.conversations.delete())
+                
+                // Verify that all conversations are deleted
+                let count = try db.scalar(DatabaseSchema.conversations.count)
+                
+                if count > 0 {
+                    try db.execute("DELETE FROM conversations;")
+                    
+                    // Check again
+                    let countAfterRawSQL = try db.scalar(DatabaseSchema.conversations.count)
+                    
+                    if countAfterRawSQL > 0 {
+                        throw DatabaseError.deleteFailed("Failed to delete all conversations")
+                    }
+                }
+            }
+            
+            // Double-check after the transaction
+            let finalCount = try db.scalar(DatabaseSchema.conversations.count)
+            
+            if finalCount > 0 {
+                // Try one more approach - delete each conversation individually
+                let allConversations = getAllConversations(limit: 1000) // Get all remaining conversations
+                for conversation in allConversations {
+                    try deleteConversation(id: conversation.id)
+                }
+                
+                // Final check
+                let veryFinalCount = try db.scalar(DatabaseSchema.conversations.count)
+                
+                if veryFinalCount > 0 {
+                    throw DatabaseError.deleteFailed("Failed to delete all conversations after multiple attempts")
+                }
+            }
+            
+            // Verify that all messages are also deleted
+            let messageCount = try db.scalar(DatabaseSchema.messages.count)
+            
+            if messageCount > 0 {
+                // Delete all messages directly
+                try db.run(DatabaseSchema.messages.delete())
+                
+                // Check again
+                let finalMessageCount = try db.scalar(DatabaseSchema.messages.count)
+                
+                if finalMessageCount > 0 {
+                    throw DatabaseError.deleteFailed("Failed to delete all messages")
+                }
+            }
+            
+            return
+        } catch {
+            throw DatabaseError.deleteFailed("Failed to delete all conversations: \(error.localizedDescription)")
+        }
+    }
+    
     // MARK: - Message Methods
     
     func addMessage(_ message: Message, toConversation conversationId: String) {

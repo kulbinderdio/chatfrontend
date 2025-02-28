@@ -56,6 +56,35 @@ class MockDatabaseManager: DatabaseManager {
         messages.removeValue(forKey: id)
     }
     
+    override func deleteAllConversations() throws {
+        // Get the count before deletion for logging
+        let beforeCount = conversations.count
+        print("Before deletion: \(beforeCount) conversations")
+        
+        // Clear all messages and conversations
+        messages.removeAll()
+        conversations.removeAll()
+        
+        // Verify that all conversations were deleted
+        if !conversations.isEmpty {
+            print("Warning: \(conversations.count) conversations still remain after clearing")
+            
+            // Try one more approach - delete each conversation individually
+            let allConversations = conversations
+            for conversation in allConversations {
+                try deleteConversation(id: conversation.id)
+            }
+            
+            // Final check
+            if !conversations.isEmpty {
+                print("Error: \(conversations.count) conversations still remain after individual deletion")
+                throw DatabaseError.deleteFailed("Failed to delete all conversations")
+            }
+        }
+        
+        print("Successfully deleted all conversations and messages")
+    }
+    
     override func updateConversationTitle(id: String, title: String) throws {
         if let index = conversations.firstIndex(where: { $0.id == id }) {
             conversations[index].title = title

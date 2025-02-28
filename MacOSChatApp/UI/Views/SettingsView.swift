@@ -102,35 +102,41 @@ struct AdvancedSettingsView: View {
             
             Section(header: Text("Data Management")) {
                 Button("Clear Conversation History") {
+                    print("Clear Conversation History button pressed")
                     showingClearHistoryAlert = true
                 }
                 .foregroundColor(.red)
                 
                 Button("Reset All Settings") {
+                    print("Reset All Settings button pressed")
                     showingResetSettingsAlert = true
                 }
                 .foregroundColor(.red)
             }
         }
-        .alert(isPresented: $showingClearHistoryAlert) {
-            Alert(
-                title: Text("Clear Conversation History"),
-                message: Text("Are you sure you want to clear all conversation history? This action cannot be undone."),
-                primaryButton: .destructive(Text("Clear")) {
-                    viewModel.clearConversationHistory()
-                },
-                secondaryButton: .cancel()
-            )
+        // Use separate alert modifiers for each alert
+        .alert("Clear Conversation History", isPresented: $showingClearHistoryAlert) {
+            Button("Cancel", role: .cancel) {
+                print("Clear History cancelled")
+            }
+            Button("Clear", role: .destructive) {
+                print("Clear History confirmed, calling viewModel.clearConversationHistory()")
+                viewModel.clearConversationHistory()
+            }
+        } message: {
+            Text("Are you sure you want to clear all conversation history? This action cannot be undone.")
         }
-        .alert(isPresented: $showingResetSettingsAlert) {
-            Alert(
-                title: Text("Reset All Settings"),
-                message: Text("Are you sure you want to reset all settings to their default values? This action cannot be undone."),
-                primaryButton: .destructive(Text("Reset")) {
-                    viewModel.resetAllSettings()
-                },
-                secondaryButton: .cancel()
-            )
+        
+        .alert("Reset All Settings", isPresented: $showingResetSettingsAlert) {
+            Button("Cancel", role: .cancel) {
+                print("Reset Settings cancelled")
+            }
+            Button("Reset", role: .destructive) {
+                print("Reset Settings confirmed, calling viewModel.resetAllSettings()")
+                viewModel.resetAllSettings()
+            }
+        } message: {
+            Text("Are you sure you want to reset all settings to their default values? This action cannot be undone.")
         }
     }
 }

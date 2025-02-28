@@ -40,7 +40,7 @@ class SettingsViewModel: ObservableObject {
     // Dependencies
     private let keychainManager: KeychainManager
     private let userDefaultsManager: UserDefaultsManager
-    private let databaseManager: DatabaseManager
+    let databaseManager: DatabaseManager // Changed from private to public
     private let profileManager: ProfileManager
     
     private var cancellables = Set<AnyCancellable>()
@@ -250,21 +250,60 @@ class SettingsViewModel: ObservableObject {
     // MARK: - Advanced Settings
     
     func clearConversationHistory() {
-        // Get all conversations
-        let conversations = databaseManager.getAllConversations()
+        isLoading = true
+        errorMessage = nil
         
-        // Delete each conversation
-        for conversation in conversations {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
             do {
-                try databaseManager.deleteConversation(id: conversation.id)
+                // Delete all conversations at once
+                try self.databaseManager.deleteAllConversations()
+                
+                // Verify that all conversations were deleted
+                let afterCount = self.databaseManager.getConversationCount()
+                
+                // Only post notification if deletion was successful
+                if afterCount == 0 {
+                    DispatchQueue.main.async {
+                        // Post notification to refresh conversation list
+                        NotificationCenter.default.post(name: Notification.Name("ConversationHistoryCleared"), object: nil)
+                        self.isLoading = false
+                    }
+                } else {
+                    // Try to delete them again individually as a fallback
+                    let remainingConversations = self.databaseManager.getAllConversations()
+                    for conversation in remainingConversations {
+                        do {
+                            try self.databaseManager.deleteConversation(id: conversation.id)
+                        } catch {
+                            // Silently continue
+                        }
+                    }
+                    
+                    // Check again
+                    let finalCount = self.databaseManager.getConversationCount()
+                    
+                    if finalCount == 0 {
+                        DispatchQueue.main.async {
+                            // Post notification to refresh conversation list
+                            NotificationCenter.default.post(name: Notification.Name("ConversationHistoryCleared"), object: nil)
+                            self.isLoading = false
+                        }
+                    } else {
+                        DispatchQueue.main.async {
+                            self.errorMessage = "Failed to delete all conversations. Please try again."
+                            self.isLoading = false
+                        }
+                    }
+                }
             } catch {
-                print("Failed to delete conversation \(conversation.id): \(error.localizedDescription)")
-                errorMessage = "Failed to delete some conversations"
+                DispatchQueue.main.async {
+                    self.errorMessage = "Failed to delete conversations: \(error.localizedDescription)"
+                    self.isLoading = false
+                }
             }
         }
-        
-        // Post notification to refresh conversation list
-        NotificationCenter.default.post(name: Notification.Name("ConversationHistoryCleared"), object: nil)
     }
     
     func resetAllSettings() {
