@@ -334,6 +334,9 @@ class SettingsViewModel: ObservableObject {
         modelConfigManager.selectedModel = selectedModel
         modelConfigManager.ollamaEnabled = ollamaEnabled
         modelConfigManager.ollamaEndpoint = ollamaEndpoint
+        
+        // Delete all profiles and create a default one
+        profileManager.deleteAllProfiles()
     }
     
     // MARK: - Computed Properties

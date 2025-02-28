@@ -156,7 +156,11 @@ if [ "$SKIP_BUILD" = false ]; then
 
     # Create the app bundle
     print_section "Creating app bundle"
-    ./build_app.sh
+    if [ "$BUILD_TYPE" = "release" ]; then
+        ./build_app.sh --release
+    else
+        ./build_app.sh
+    fi
     check_status "App bundle creation"
 fi
 

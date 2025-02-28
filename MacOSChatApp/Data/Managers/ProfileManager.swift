@@ -413,6 +413,66 @@ class ProfileManager: ObservableObject {
         }
     }
     
+    func deleteAllProfiles() {
+        // Get a copy of the profiles list
+        let profilesCopy = profiles
+        
+        // Find the default profile
+        let defaultProfile = profilesCopy.first(where: { $0.isDefault })
+        
+        // Clear the profiles list and selected profile ID first
+        DispatchQueue.main.async {
+            self.profiles = []
+            self.selectedProfileId = nil
+        }
+        
+        // Delete all non-default profiles from the database
+        for profile in profilesCopy where !profile.isDefault {
+            // Delete API key from Keychain
+            keychainManager.deleteAPIKey(forProfileId: profile.id)
+            
+            // Try to delete the profile from the database
+            do {
+                try databaseManager.deleteProfile(id: profile.id)
+            } catch {
+                // Silently continue
+            }
+        }
+        
+        // If there's a default profile, update it to have default settings
+        if let defaultProfile = defaultProfile {
+            // Delete API key from Keychain
+            keychainManager.deleteAPIKey(forProfileId: defaultProfile.id)
+            
+            // Update the default profile with default settings
+            do {
+                try databaseManager.updateProfile(ModelProfile(
+                    id: defaultProfile.id,
+                    name: "OpenAI GPT-3.5",
+                    modelName: "gpt-3.5-turbo",
+                    apiEndpoint: "https://api.openai.com/v1/chat/completions",
+                    isDefault: true,
+                    parameters: ModelParameters(
+                        temperature: 0.7,
+                        maxTokens: 2048,
+                        topP: 1.0,
+                        frequencyPenalty: 0.0,
+                        presencePenalty: 0.0
+                    )
+                ))
+            } catch {
+                // If updating fails, create a new default profile
+                createDefaultProfile()
+            }
+        } else {
+            // If there's no default profile, create one
+            createDefaultProfile()
+        }
+        
+        // Reload profiles
+        loadProfiles()
+    }
+    
     private func createDefaultProfile() {
         do {
             // Create a default OpenAI profile
@@ -457,4 +517,3 @@ enum ProfileError: Error, LocalizedError {
             return "Invalid import data"
         }
     }
-}

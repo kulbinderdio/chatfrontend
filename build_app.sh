@@ -1,17 +1,42 @@
 #!/bin/bash
 
+# Parse command line arguments
+BUILD_TYPE="debug"
+RUN_AFTER_BUILD=false
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -r|--release) BUILD_TYPE="release" ;;
+        --run) RUN_AFTER_BUILD=true ;;
+        -h|--help)
+            echo "Usage: ./build_app.sh [options]"
+            echo "Options:"
+            echo "  -r, --release    Build in release mode"
+            echo "  --run            Run the app after building"
+            echo "  -h, --help       Show this help message"
+            exit 0
+            ;;
+        *) echo "Unknown parameter: $1"; exit 1 ;;
+    esac
+    shift
+done
+
 # Set variables
 APP_NAME="MacOSChatApp"
-BUILD_DIR=".build/debug"
+BUILD_DIR=".build/$BUILD_TYPE"
 APP_BUNDLE_DIR="$BUILD_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_BUNDLE_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 FRAMEWORKS_DIR="$CONTENTS_DIR/Frameworks"
 
-# Build the app in debug mode
+# Build the app
 echo "=== Building $APP_NAME ==="
-swift build
+if [ "$BUILD_TYPE" = "release" ]; then
+    swift build -c release
+else
+    swift build
+fi
 
 # Check if build was successful
 if [ $? -ne 0 ]; then
