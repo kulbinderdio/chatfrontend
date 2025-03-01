@@ -1,15 +1,18 @@
 import Foundation
 import PDFKit
 import Combine
+import AppKit
 
 enum DocumentHandlerError: Error {
     case unsupportedFileType
     case fileReadError
     case pdfProcessingError
     case emptyDocument
+    case securityScopedResourceFailed
 }
 
 class DocumentHandler: ObservableObject {
+    private let fileManager = FileManager.default
     func extractText(from url: URL) throws -> String {
         let fileExtension = url.pathExtension.lowercased()
         
@@ -24,6 +27,20 @@ class DocumentHandler: ObservableObject {
     }
     
     private func extractTextFromPDF(url: URL) throws -> String {
+        // Start accessing a security-scoped resource
+        var resourceAccessGranted = false
+        if url.startAccessingSecurityScopedResource() {
+            resourceAccessGranted = true
+        }
+        
+        // Ensure we stop accessing the resource when we're done
+        defer {
+            if resourceAccessGranted {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        
+        // Create PDF document from URL
         guard let pdfDocument = PDFDocument(url: url) else {
             throw DocumentHandlerError.pdfProcessingError
         }
@@ -53,6 +70,19 @@ class DocumentHandler: ObservableObject {
     }
     
     private func extractTextFromTXT(url: URL) throws -> String {
+        // Start accessing a security-scoped resource
+        var resourceAccessGranted = false
+        if url.startAccessingSecurityScopedResource() {
+            resourceAccessGranted = true
+        }
+        
+        // Ensure we stop accessing the resource when we're done
+        defer {
+            if resourceAccessGranted {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        
         do {
             let data = try Data(contentsOf: url)
             

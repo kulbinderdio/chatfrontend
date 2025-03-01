@@ -22,10 +22,26 @@ struct DocumentPicker: View {
         panel.canChooseFiles = true
         panel.allowedContentTypes = [.pdf, .plainText]
         
+        // Enable security-scoped bookmarks
+        panel.allowsOtherFileTypes = true
+        panel.treatsFilePackagesAsDirectories = false
+        panel.showsResizeIndicator = true
+        panel.showsHiddenFiles = false
+        panel.level = .modalPanel
+        
         // Try to use the popover window from MenuBarManager
         if let popoverWindow = menuBarManager.popoverWindow {
             panel.beginSheetModal(for: popoverWindow) { response in
                 if response == .OK, let url = panel.url {
+                    // Create a security-scoped bookmark
+                    do {
+                        let bookmarkData = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+                        // Store the bookmark data if needed for long-term access
+                        UserDefaults.standard.set(bookmarkData, forKey: "LastDocumentBookmark")
+                    } catch {
+                        print("Failed to create security-scoped bookmark: \(error)")
+                    }
+                    
                     onDocumentPicked(url)
                 }
                 // Dismiss the sheet after file selection or cancellation
@@ -37,6 +53,15 @@ struct DocumentPicker: View {
             // Fallback to the application's main window
             panel.beginSheetModal(for: window) { response in
                 if response == .OK, let url = panel.url {
+                    // Create a security-scoped bookmark
+                    do {
+                        let bookmarkData = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+                        // Store the bookmark data if needed for long-term access
+                        UserDefaults.standard.set(bookmarkData, forKey: "LastDocumentBookmark")
+                    } catch {
+                        print("Failed to create security-scoped bookmark: \(error)")
+                    }
+                    
                     onDocumentPicked(url)
                 }
                 // Dismiss the sheet after file selection or cancellation
@@ -48,6 +73,15 @@ struct DocumentPicker: View {
             // Fallback if no window is available
             panel.begin { response in
                 if response == .OK, let url = panel.url {
+                    // Create a security-scoped bookmark
+                    do {
+                        let bookmarkData = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+                        // Store the bookmark data if needed for long-term access
+                        UserDefaults.standard.set(bookmarkData, forKey: "LastDocumentBookmark")
+                    } catch {
+                        print("Failed to create security-scoped bookmark: \(error)")
+                    }
+                    
                     onDocumentPicked(url)
                 }
                 // Dismiss the sheet after file selection or cancellation

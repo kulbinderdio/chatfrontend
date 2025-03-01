@@ -4,6 +4,7 @@ struct ExtractedTextEditorView: View {
     @ObservedObject var viewModel: ChatViewModel
     @Binding var text: String
     let documentName: String
+    @State private var isEditing: Bool = false
     
     // Approximate token limit for most models
     private let tokenLimit = 4096
@@ -14,6 +15,10 @@ struct ExtractedTextEditorView: View {
     
     private var isOverTokenLimit: Bool {
         tokenCount > tokenLimit
+    }
+    
+    private var tokenLimitPercentage: Double {
+        min(Double(tokenCount) / Double(tokenLimit), 1.0)
     }
     
     var body: some View {
@@ -31,6 +36,7 @@ struct ExtractedTextEditorView: View {
                         .foregroundColor(.gray)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .help("Cancel and close")
             }
             
             HStack {
@@ -43,7 +49,13 @@ struct ExtractedTextEditorView: View {
                 Text("Approx. \(tokenCount) tokens")
                     .font(.caption)
                     .foregroundColor(isOverTokenLimit ? .red : .secondary)
+                    .help("Estimated token count")
             }
+            
+            // Token usage progress bar
+            ProgressView(value: tokenLimitPercentage)
+                .progressViewStyle(LinearProgressViewStyle())
+                .accentColor(tokenLimitPercentage > 0.9 ? .red : (tokenLimitPercentage > 0.7 ? .orange : .blue))
             
             if isOverTokenLimit {
                 HStack {
@@ -60,6 +72,7 @@ struct ExtractedTextEditorView: View {
                         truncateText()
                     }
                     .font(.caption)
+                    .help("Automatically truncate text to fit within token limit")
                 }
                 .padding(8)
                 .background(Color.orange.opacity(0.1))
@@ -72,6 +85,10 @@ struct ExtractedTextEditorView: View {
                 .background(Color(.textBackgroundColor))
                 .cornerRadius(8)
                 .frame(minHeight: 200)
+                .onChange(of: text) { _ in
+                    isEditing = true
+                }
+                .accessibilityLabel("Document text editor")
             
             HStack {
                 Spacer()
@@ -80,16 +97,23 @@ struct ExtractedTextEditorView: View {
                     viewModel.cancelExtractedText()
                 }
                 .keyboardShortcut(.escape, modifiers: [])
+                .help("Cancel and discard changes")
                 
                 Button("Send") {
                     viewModel.useExtractedText()
                 }
                 .keyboardShortcut(.return, modifiers: [.command])
                 .buttonStyle(BorderedButtonStyle())
+                .help("Send text to chat")
+                .disabled(text.isEmpty)
             }
         }
         .padding()
-        .frame(width: 600, height: 400)
+        .frame(width: 700, height: 500)
+        .onAppear {
+            // Reset editing state when view appears
+            isEditing = false
+        }
     }
     
     private func truncateText() {
@@ -103,6 +127,9 @@ struct ExtractedTextEditorView: View {
             
             // Add a note about truncation
             text += "\n\n[Text has been truncated due to token limit]"
+            
+            // Mark as edited
+            isEditing = true
         }
     }
 }

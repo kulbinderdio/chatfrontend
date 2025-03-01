@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 struct DocumentDropArea<Content: View>: View {
     let onDocumentDropped: (URL) -> Void
@@ -26,6 +28,15 @@ struct DocumentDropArea<Content: View>: View {
                             // Check if file is PDF or TXT
                             let fileExtension = url.pathExtension.lowercased()
                             if fileExtension == "pdf" || fileExtension == "txt" {
+                                // Create a security-scoped bookmark
+                                do {
+                                    let bookmarkData = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+                                    // Store the bookmark data if needed for long-term access
+                                    UserDefaults.standard.set(bookmarkData, forKey: "LastDocumentBookmark")
+                                } catch {
+                                    print("Failed to create security-scoped bookmark: \(error)")
+                                }
+                                
                                 onDocumentDropped(url)
                             }
                         }

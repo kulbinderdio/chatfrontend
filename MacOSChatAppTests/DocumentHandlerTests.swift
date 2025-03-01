@@ -60,7 +60,7 @@ class DocumentHandlerTests: XCTestCase {
         
         // When/Then
         XCTAssertThrowsError(try documentHandler.extractText(from: emptyFileURL)) { error in
-            XCTAssertEqual(error as? DocumentHandlerError, DocumentHandlerError.fileReadError)
+            XCTAssertEqual(error as? DocumentHandlerError, DocumentHandlerError.emptyDocument)
         }
     }
     

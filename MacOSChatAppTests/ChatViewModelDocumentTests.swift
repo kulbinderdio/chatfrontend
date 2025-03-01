@@ -14,6 +14,11 @@ class MockDocumentHandler: DocumentHandler {
         
         return mockExtractedText ?? "Mock text"
     }
+    
+    // Override to avoid security-scoped resource handling in tests
+    override func estimateTokenCount(for text: String) -> Int {
+        return text.count / 4
+    }
 }
 
 class ChatViewModelDocumentTests: XCTestCase {

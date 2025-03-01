@@ -223,16 +223,32 @@ class ChatViewModel: ObservableObject {
     // MARK: - Document Handling
     
     func handleDocumentDropped(url: URL) {
-        do {
-            let text = try documentHandler.extractText(from: url)
-            // Show in UI but don't save to database
-            DispatchQueue.main.async {
-                self.extractedDocumentText = text
-                self.extractedDocumentName = url.lastPathComponent
-                self.showExtractedTextEditor = true
+        // Show loading indicator
+        DispatchQueue.main.async {
+            self.isLoading = true
+        }
+        
+        // Process document in background
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            do {
+                let text = try self.documentHandler.extractText(from: url)
+                let tokenCount = self.documentHandler.estimateTokenCount(for: text)
+                
+                // Update UI on main thread
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    self.extractedDocumentText = text
+                    self.extractedDocumentName = url.lastPathComponent
+                    self.showExtractedTextEditor = true
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    self.handleDocumentError(error)
+                }
             }
-        } catch {
-            handleDocumentError(error)
         }
     }
     
@@ -249,6 +265,8 @@ class ChatViewModel: ObservableObject {
                 errorMessage = "Could not process the PDF file. It may be corrupted or password-protected."
             case .emptyDocument:
                 errorMessage = "The document appears to be empty."
+            case .securityScopedResourceFailed:
+                errorMessage = "Could not access the file due to security restrictions. Please try again."
             }
         } else {
             errorMessage = "Failed to process document: \(error.localizedDescription)"
